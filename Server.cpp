@@ -5,6 +5,7 @@
 #include <list>
 #include <vector>
 #include <algorithm>
+#include <stack>
 
 using namespace Sync;
 // This thread handles each client connection
@@ -15,6 +16,7 @@ private:
     Socket& socket;
     // The data we are receiving
     ByteArray data;
+    bool stop=false;
 public:
     SocketThread(Socket& socket)
     : socket(socket)
@@ -30,12 +32,13 @@ public:
 
     virtual long ThreadMain()
     {
-        while(1)
+        while(!stop)
         {
             try
             {
                 // Wait for data
-                socket.Read(data);
+                int clientStatus=socket.Read(data);
+                if(clientStatus<=0) return -1;
 
                 // Perform operations on the data
                 std::string data_str = data.ToString();
@@ -55,6 +58,12 @@ public:
 
         return 0;
     }
+
+    void terminate(Event e){
+        stop=true;
+        socket.Close();
+        e.Trigger();
+    }
 };
 
 // This thread handles the server operations
@@ -63,6 +72,7 @@ class ServerThread : public Thread
 private:
     SocketServer& server;
     bool terminate = false;
+    std::stack<SocketThread*> socketThreads;
 public:
     ServerThread(SocketServer& server)
     : server(server)
@@ -71,17 +81,41 @@ public:
     ~ServerThread()
     {
         // Cleanup
+
     }
 
     virtual long ThreadMain()
     {
-        // Wait for a client socket connection
-        Socket* newConnection = new Socket(server.Accept());
-		//Make sure you CLOSE all socket at the end
-        // Pass a reference to this pointer into a new socket thread
-        Socket& socketReference = *newConnection;
-        SocketThread* socketThread = new SocketThread(socketReference);
+        while(!terminate){
+            // Wait for a client socket connection
+            Socket* newConnection = new Socket(server.Accept());
+            //Make sure you CLOSE all socket at the end
+            // Pass a reference to this pointer into a new socket thread
+            Socket& socketReference = *newConnection;
+            socketThreads.push(new SocketThread(socketReference));
+        }        
     }
+
+    void terminateServer(Event finish){
+        std::cout<<"+++++start termination+++++"<<std::endl;
+        terminate=true;
+        Event closeWait;
+        while(!socketThreads.empty()){
+            
+            socketThreads.top()->terminate(closeWait);
+            //wait the socketthread close the socket
+            
+            closeWait.Wait();
+            closeWait.Reset();
+            
+            delete socketThreads.top();
+            socketThreads.pop();
+        }
+
+        std::cout<<"All connection has been closed!"<<std::endl;
+        finish.Trigger();
+    }
+
 };
 
 
@@ -102,8 +136,12 @@ int main(void)
     cinWaiter.Wait();
     std::cin.get();
 
+    Event finish;
     // Shut down and clean up the server
+    serverThread.terminateServer(finish);    
     server.Shutdown();
-	
+    finish.Wait();      //wait for termination of serverThread finish.
+    std::cout << "Exit the Program...";
+
 	//Cleanup, including exiting clients, when the user presses enter
 }

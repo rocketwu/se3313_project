@@ -6,7 +6,6 @@
 #include <time.h>
 
 using namespace Sync;
-
 // This thread handles the connection to the server
 class ClientThread : public Thread
 {
@@ -18,30 +17,58 @@ private:
 	ByteArray data;
 	std::string data_str;
 public:
+	Event teminateEvent;
 	ClientThread(Socket& socket)
 	: socket(socket)
-	{}
+	{
+		
+	}
 
 	~ClientThread()
-	{}
+	{
+
+	}
 
 	virtual long ThreadMain()
 	{
-		int result = socket.Open();
-		std::cout << "Please input your data (done to exit): ";
-		std::cout.flush();
+		try{
+			int result = socket.Open();
+		}
+		catch(const std::string msg){
+			std::cerr<<msg<<std::endl;
+			teminateEvent.Trigger();
+			return -1;
+		}
+		
+		do{
+			// Get the data
+			std::cout << "Please input your data (done to exit): ";
+			std::cout.flush();
+			std::getline(std::cin, data_str);
+			data = ByteArray(data_str);
 
-		// Get the data
-		std::getline(std::cin, data_str);
-		data = ByteArray(data_str);
+			// Write to the server
+			socket.Write(data);
 
-		// Write to the server
-		socket.Write(data);
+			// Get the response
+			int serverStatus=socket.Read(data);
+			
+			if (serverStatus>0){
+				//use serverStatus to test whether the server alive or not
+				std::cout << "Server Response: " << data.ToString() << std::endl;
+			}else if (serverStatus==0){
+				std::cout<<"Server Close the Connection"<<std::endl;
+				break;
+			}else{
+				std::cout<<"Server error-=-=-=-=-=-="<<std::endl;
+				break;
+			}
+			
+		}while(data_str!="done");
 
-		// Get the response
-		socket.Read(data);
-		data_str = data.ToString();
-		std::cout << "Server Response: " << data_str << std::endl;
+
+		socket.Close();
+		teminateEvent.Trigger();
 		return 0;
 	}
 };
@@ -54,11 +81,6 @@ int main(void)
 	// Create our socket
 	Socket socket("127.0.0.1", 3000);
 	ClientThread clientThread(socket);
-	while(1)
-	{
-		sleep(1);
-	}
-	socket.Close();
-
+	clientThread.teminateEvent.Wait();
 	return 0;
 }
