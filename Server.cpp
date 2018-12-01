@@ -121,27 +121,39 @@ public:
 
 int main(void)
 {
+    int port = 9631;
     std::cout << "I am a server." << std::endl;
-	std::cout << "Press enter to terminate the server...";
+    std::cout << "Press enter to terminate the server...";
     std::cout.flush();
-	
-	// Create our server
-    SocketServer server(3000);    
+    while (true){
+        try{
+            std::cout<<"trying to listen port# "<<port<<std::endl;            
+            // Create our server
+            SocketServer server(port);    
 
-    // Need a thread to perform server operations
-    ServerThread serverThread(server);
-	
-	// This will wait for input to shutdown the server
-    FlexWait cinWaiter(1, stdin);
-    cinWaiter.Wait();
-    std::cin.get();
+            // Need a thread to perform server operations
+            ServerThread serverThread(server);
+            
+            std::cout<<"Listening on port# "<<port<<std::endl;
+            std::cout.flush();
+            // This will wait for input to shutdown the server
+            FlexWait cinWaiter(1, stdin);
+            cinWaiter.Wait();
+            std::cin.get();
 
-    Event finish;
-    // Shut down and clean up the server
-    serverThread.terminateServer(finish);    
-    server.Shutdown();
-    finish.Wait();      //wait for termination of serverThread finish.
-    std::cout << "Exit the Program...";
+            Event finish;
+            // Shut down and clean up the server
+            serverThread.terminateServer(finish);    
+            server.Shutdown();
+            finish.Wait();      //wait for termination of serverThread finish.
+            std::cout << "Exit the Program...";
+            break;
+            //Cleanup, including exiting clients, when the user presses enter
+        }
+        catch (const std::string msg){
+            std::cout<<msg<<std::endl;
+            port++;
+        }
+    }
 
-	//Cleanup, including exiting clients, when the user presses enter
 }

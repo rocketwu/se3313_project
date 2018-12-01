@@ -1,0 +1,1 @@
+scp -i ~/Documents/group4a3003.pem  Server group4a@35.162.177.130:/home/group4a/ 

@@ -1,4 +1,4 @@
-all: Client Server
+all: Client Server ProjectServer
 
 Client : Client.o thread.o socket.o Blockable.o
 	g++ -o Client Client.o thread.o socket.o Blockable.o -pthread -l rt
@@ -9,11 +9,17 @@ Client.o : Client.cpp socket.h
 Server : Server.o thread.o socket.o socketserver.o Blockable.o
 	g++ -o Server Server.o thread.o socket.o socketserver.o Blockable.o -pthread -l rt
 
+ProjectServer : ProjectServer.o thread.o socket.o socketserver.o Blockable.o
+	g++ -o ProjectServer ProjectServer.o thread.o socket.o socketserver.o Blockable.o -pthread -l rt
+
 Blockable.o : Blockable.h Blockable.cpp
 	g++ -c Blockable.cpp -std=c++11
 
 Server.o : Server.cpp thread.h socketserver.h
 	g++ -c Server.cpp -std=c++11
+
+ProjectServer.o : ProjectServer.cpp thread.h socketserver.h
+	g++ -c ProjectServer.cpp -std=c++11
 
 thread.o : thread.cpp thread.h
 	g++ -c thread.cpp -std=c++11
