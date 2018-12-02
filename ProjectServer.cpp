@@ -13,6 +13,8 @@
 using namespace Sync;
 // This thread handles each client connection
 
+
+
 void SplitString(const std::string& s, std::vector<std::string>& v, const std::string& c)
 {
   std::string::size_type pos1, pos2;
@@ -36,193 +38,9 @@ std::vector<std::string>* dataPhars (ByteArray data){
     return v;
 }
 
-
-
-//player manage class
-class PlayerManage : public Thread{
-    public:
-        static const int shakingNum = 50;
-        static std::list<Player*> playingPlayer;
-        static Player* handshakingPlayer[shakingNum];
-        static std::vector<Room*> rooms;
-        static ThreadSem sem;
-        Socket* socketptr;
-        Event playerDeadEvent;
-        Player* thePlayer;
-        PlayerManage(Socket * socketptr):socketptr(socketptr){
-            for (int i=0;i<shakingNum;i++){
-                handshakingPlayer[i]=NULL;
-            }
-        }
-        virtual long ThreadMain()
-        {
-            ByteArray data;
-            socketptr->Read(data);
-            std::vector<std::string>* data_v = dataPhars(data);
-
-            if ((*data_v)[0]=="hey"){
-                hey((*data_v)[1]);
-            }
-            else{
-                thread((*data_v)[1]);
-            }
-            delete data_v;
-            playerDeadEvent.Wait();
-            playingPlayer.remove(thePlayer);
-            delete thePlayer;
-
-        }
-    private:
-        void hey(std::string name){
-            int position = 0;
-            sem.Wait();
-            for(position = 0; position<shakingNum; position++){
-                if(!handshakingPlayer[position]) {
-                    thePlayer = handshakingPlayer[position] = new Player(socketptr,name, playerDeadEvent);
-                    break;
-                }
-            }
-            sem.Signal();
-            int room_size = rooms.size();
-            std::string msg_str="welcome|"+std::to_string(position)+"|"+std::to_string(room_size);
-            for(int i = 0;i<room_size;i++){
-                msg_str+="|" + std::to_string(rooms[i]->getPlayerNum());
-            }
-            socketptr->Write(ByteArray(msg_str));    //send  welcome|<threadid>|<number of rooms>|<masters of room#1>...
-        }
-        void thread(std::string thread){
-            int position = std::stoi(thread);
-            handshakingPlayer[position]->bindSendSocket(socketptr);
-            playingPlayer.push_back(handshakingPlayer[position]);
-            handshakingPlayer[position]=NULL;
-        }
-};
-
-//player class
-class Player{
-    public:
-        std::string name;
-        Room* room;
-        ReciveData* recive;
-        SendData* send;
-        bool terminate = false;
-        bool isYou = false;
-        Event DeathEvent;
-        Event ReciveClose;
-        Event SendClose;
-        unsigned int currentDialogNum=5000;// TODO: set this value when server sending first dialog to client
-        Player(Socket* recSocket, std::string name, Event event):DeathEvent(event){recive = new ReciveData(recSocket,*this, ReciveClose);this->name=name;}
-        void bindSendSocket (Socket * sendSocket){
-            send = new SendData(sendSocket, *this, SendClose);
-        }
-        void terminatePlayer(){
-            terminate=true;
-            // TODO: event trigger before wait??
-            ReciveClose.Wait();
-            delete recive;
-            SendClose.Wait();
-            delete send;
-            DeathEvent.Trigger();
-        }
-};
-
-class ReciveData : public Thread{
-    public:
-        ReciveData(Socket * socketptr, Player& player, Event closeEvent):closeEvent(closeEvent),socketptr(socketptr),player(player){}
-        Socket * socketptr;
-        ThreadSem* bidSem;
-        ThreadSem* saySem;
-        Event closeEvent;
-        virtual long ThreadMain(){
-            std::vector<std::string>* data_v;
-            while(!player.terminate){
-                ByteArray data;
-                int clientStatus = socketptr->Read(data);
-                if (clientStatus == 0){
-                    std::cout<<"client disconnected"<<std::endl;
-                    player.terminatePlayer();
-                }
-                std::string data_str = data.ToString();
-                data_v = dataPhars(data);
-                std::string action = (*data_v)[0];
-                if(action == "room"){
-                    int roomNum = std::stoi((*data_v)[1]);
-                    joinRoom(roomNum);
-                }
-                else if (action == "price"){
-                    int newPrice = std::stoi((*data_v)[1]);
-                    bid(newPrice);
-                }
-                else if (action == "say" || action == "dialog"){
-                    say((*data_v)[1]);
-                }
-                else if(action == "leave"){
-                    leave();
-                }
-                delete data_v;
-            }
-            socketptr->Close();
-            delete socketptr;
-            closeEvent.Trigger();
-        }
-        void joinRoom(int roomNum){
-            player.room=PlayerManage::rooms[roomNum];
-            player.room->join(&player);
-            bidSem = player.room->getBidSem();
-            saySem = player.room->getSaySem();
-        }
-        void bid(int newPrice){
-            bidSem->Wait();
-            if(player.room->getCurrentRound()->item.price<newPrice){
-                player.room->getCurrentRound()->item.price = newPrice;
-                player.room->getCurrentRound()->payer = player.name;
-                player.isYou = true;
-            }else{
-                player.isYou = false;
-            }
-            bidSem->Signal();
-        }
-        void say(std::string content){
-            saySem->Wait();
-            unsigned int currentNo = player.room->getCurrentDialog()->dialogNum;
-            player.room->dialogs.push(new Dialog(++currentNo,content, player.name));
-            player.currentDialogNum = currentNo;
-            saySem->Signal();
-        }
-        void leave(){
-            bidSem = NULL;
-            saySem = NULL;
-            player.room->leave(&player);
-            player.room = NULL;
-
-            //send new rooms info
-            int position = 0;
-            int room_size = PlayerManage::rooms.size();
-            std::string msg_str="welcome|"+std::to_string(position)+"|"+std::to_string(room_size);
-            for(int i = 0;i<room_size;i++){
-                msg_str+="|" + std::to_string(PlayerManage::rooms[i]->getPlayerNum());
-            }
-            socketptr->Write(ByteArray(msg_str));
-        }
-
-    private:
-        Player& player;
-};
-
-class SendData : public Thread{
-    public:
-        SendData(Socket * socketptr, Player& player, Event closeEvent):closeEvent(closeEvent), socketptr(socketptr),player(player){}
-        Socket * socketptr;
-        Event closeEvent;
-        virtual long ThreadMain(){
-            while(!player.terminate){
-                
-            }
-        }
-    private:
-        Player& player;
-
-};
+class Player;
+class ReciveData;
+class SendData;
 
 //item class
 class Item{
@@ -286,12 +104,20 @@ class Room : public Thread{
     
     public:
         std::queue<Dialog*> dialogs;
+        unsigned int rank[3];
+        std::string rankName[3];
         Room(Player* firstPlayer, float initTimer = 30):bidSem(1){
             //the room will create when the first player comes in
             players.push_back(firstPlayer);
             roundNum = 0;
             joinAble = true;
             initTimer = initTimer;
+            timer=0;
+            logs.push(new Round(0));
+            dialogs.push(new Dialog(0,"",""));
+            rank[0]=0;
+            rank[1]=0;
+            rank[2]=0;
             
         }
         Dialog* getCurrentDialog(){
@@ -335,6 +161,9 @@ class Room : public Thread{
             // TODO: terminate the room
         }
 
+        Event& getJoinEvent(){
+            return newPlayerJoin;
+        }
 
         virtual long ThreadMain(){
             while(joinAble){
@@ -352,6 +181,276 @@ class Room : public Thread{
             }
         }
 
+};
+
+//player class
+class Player{
+    public:
+        std::string name;
+        Room* room;
+        ReciveData* recive;
+        SendData* send;
+        bool terminate = false;
+        bool isYou = false;
+        Event DeathEvent;
+        Event ReciveClose;
+        Event SendClose;
+        unsigned int currentRoundNo=0;
+        unsigned int currentDialogNum=5000;// TODO: set this value when server sending first dialog to client
+        unsigned int currentPrice = 0;
+        unsigned int score = 0;
+        Player(Socket* recSocket, std::string name, Event& event):DeathEvent(event){recive = new ReciveData(recSocket,*this, ReciveClose);this->name=name;}
+        void bindSendSocket (Socket * sendSocket){
+            send = new SendData(sendSocket, *this, SendClose);
+        }
+        void terminatePlayer(){
+            if(!terminate){
+                terminate=true;
+                // TODO: event trigger before wait??
+                ReciveClose.Wait();
+                delete recive;
+                SendClose.Wait();
+                delete send;
+                DeathEvent.Trigger();
+            }
+
+        }
+};
+
+class ReciveData : public Thread{
+    public:
+        ReciveData(Socket * socketptr, Player& player, Event& closeEvent):closeEvent(closeEvent),socketptr(socketptr),player(player){}
+        Socket * socketptr;
+        ThreadSem* bidSem;
+        ThreadSem* saySem;
+        Event closeEvent;
+        virtual long ThreadMain(){
+            std::vector<std::string>* data_v;
+            while(!player.terminate){
+                ByteArray data;
+                int clientStatus = socketptr->Read(data);
+                if (clientStatus == 0){
+                    std::cout<<"client disconnected"<<std::endl;
+                    player.terminatePlayer();
+                }
+                std::string data_str = data.ToString();
+                data_v = dataPhars(data);
+                std::string action = (*data_v)[0];
+                if(action == "room"){
+                    int roomNum = std::stoi((*data_v)[1]);
+                    joinRoom(roomNum);
+                }
+                else if (action == "price"){
+                    int newPrice = std::stoi((*data_v)[1]);
+                    bid(newPrice);
+                }
+                else if (action == "say" || action == "dialog"){
+                    say((*data_v)[1]);
+                }
+                else if(action == "leave"){
+                    leave();
+                }
+                delete data_v;
+            }
+            socketptr->Close();
+            delete socketptr;
+            closeEvent.Trigger();
+        }
+        void joinRoom(int roomNum){
+            player.room=PlayerManage::rooms[roomNum];
+            player.room->join(&player);
+            bidSem = player.room->getBidSem();
+            saySem = player.room->getSaySem();
+        }
+        void bid(int newPrice){
+            bidSem->Wait();
+            if(player.room->getCurrentRound()->item.price<newPrice){
+                player.room->getCurrentRound()->item.price = newPrice;
+                player.room->getCurrentRound()->payer = player.name;
+                player.isYou = true;
+            }else{
+                player.isYou = false;
+            }
+            //player.currentPrice=player.room->getCurrentRound()->item.price;
+            bidSem->Signal();
+        }
+        void say(std::string content){
+            saySem->Wait();
+            player.currentDialogNum = player.room->getCurrentDialog()->dialogNum;
+            player.room->dialogs.push(new Dialog(++player.currentDialogNum,content, player.name));
+            
+            saySem->Signal();
+        }
+        void leave(){
+            for(int i =0;i<3;i++){
+                if(player.room->rank[i]<player.score){
+                    player.room->rank[i]=player.score;
+                    player.room->rankName[i]=player.name;
+                    break;
+                }
+            }
+            bidSem = NULL;
+            saySem = NULL;
+            player.room->leave(&player);
+            player.room = NULL;
+
+            //send new rooms info
+            int position = 0;
+            int room_size = PlayerManage::rooms.size();
+            std::string msg_str="welcome|"+std::to_string(position)+"|"+std::to_string(room_size);
+            for(int i = 0;i<room_size;i++){
+                msg_str+="|" + std::to_string(PlayerManage::rooms[i]->getPlayerNum());
+            }
+            socketptr->Write(ByteArray(msg_str));
+
+        }
+
+    private:
+        Player& player;
+};
+
+class SendData : public Thread{
+    public:
+        SendData(Socket * socketptr, Player& player, Event closeEvent):closeEvent(closeEvent), socketptr(socketptr),player(player){}
+        Socket * socketptr;
+        Event closeEvent;
+        virtual long ThreadMain(){
+            while(!player.terminate){
+                while(player.room->getPlayerNum()<2){
+                    //waiting for players
+                    player.room->getJoinEvent().Wait();
+                }
+                //normal running
+                Round* r = player.room->getCurrentRound();
+                Dialog* d = player.room->getCurrentDialog();
+                if(r->roundNum>player.currentRoundNo){
+                    std::string msg = "round|"+ std::to_string(r->roundNum) + "|" + r->payer + "|";
+                    if(player.isYou){
+                        msg+="1";
+                        player.score+=r->item.score;
+                    }
+                    else{
+                        msg+="0";
+                    }
+                    socketptr->Write(ByteArray(msg));
+                    msg = "item|"+std::to_string(r->item.id)+"|"+std::to_string(r->item.price)+"|"+std::to_string(r->item.score);
+                    socketptr->Write(ByteArray(msg));
+                }
+                if(d->dialogNum>player.currentDialogNum){
+                    std::string content = d->content;
+                    std::string payer = d->sayer;
+                    std::string msg;
+                    if(content.size()==1){
+                        try{
+                            std::stoi(content);
+                            msg="say|"+content;
+                        }                            
+                        catch(...){
+                            msg="dialog|"+content;
+                        }
+                    }else{
+                        msg="dialog|"+content;
+                    }
+                    socketptr->Write(ByteArray(msg));
+                    
+                }
+                if(player.currentPrice<player.room->getCurrentRound()->item.price){
+                    std::string msg = "price|" + std::to_string(player.room->getCurrentRound()->item.price);
+                    player.currentPrice=player.room->getCurrentRound()->item.price;
+                    socketptr->Write(ByteArray(msg));
+                }
+                if (true){
+                    std::string msg = "rank";
+                    std::string p1="";
+                    std::string p2 ="";
+                    for(int i=0;i<3;i++){
+                        p1+="|"+player.room->rankName[i];
+                        p2+="|"+player.room->rank[i];
+                    }
+                    msg=msg+p1+p2;
+                    socketptr->Write(ByteArray(msg));
+                }
+
+            }
+            player.terminatePlayer();
+            socketptr->Close();
+            delete socketptr;
+            closeEvent.Trigger();
+        }
+    private:
+        Player& player;
+
+};
+
+
+
+//player manage class
+class PlayerManage : public Thread{
+    public:
+        static const int shakingNum = 50;
+        static std::list<Player*> playingPlayer;
+        static Player* handshakingPlayer[shakingNum];
+        static std::vector<Room*> rooms;
+        static ThreadSem sem;
+        Socket* socketptr;
+        Event playerDeadEvent;
+        Player* thePlayer;
+        bool isRunning = true;
+        PlayerManage(Socket * socketptr):socketptr(socketptr){
+            for (int i=0;i<shakingNum;i++){
+                handshakingPlayer[i]=NULL;
+            }
+        }
+        void terminate(Event e){
+            if (!isRunning){
+                e.Trigger();
+            }else{
+                thePlayer->terminatePlayer();
+                e.Trigger();
+            }
+        }
+        virtual long ThreadMain()
+        {
+            ByteArray data;
+            socketptr->Read(data);
+            std::vector<std::string>* data_v = dataPhars(data);
+
+            if ((*data_v)[0]=="hey"){
+                hey((*data_v)[1]);
+            }
+            else{
+                thread((*data_v)[1]);
+            }
+            delete data_v;
+            playerDeadEvent.Wait();
+            playingPlayer.remove(thePlayer);
+            delete thePlayer;
+            isRunning = false;
+        }
+    private:
+        void hey(std::string name){
+            int position = 0;
+            sem.Wait();
+            for(position = 0; position<shakingNum; position++){
+                if(!handshakingPlayer[position]) {
+                    thePlayer = handshakingPlayer[position] = new Player(socketptr,name, playerDeadEvent);
+                    break;
+                }
+            }
+            sem.Signal();
+            int room_size = rooms.size();
+            std::string msg_str="welcome|"+std::to_string(position)+"|"+std::to_string(room_size);
+            for(int i = 0;i<room_size;i++){
+                msg_str+="|" + std::to_string(rooms[i]->getPlayerNum());
+            }
+            socketptr->Write(ByteArray(msg_str));    //send  welcome|<threadid>|<number of rooms>|<masters of room#1>...
+        }
+        void thread(std::string thread){
+            int position = std::stoi(thread);
+            handshakingPlayer[position]->bindSendSocket(socketptr);
+            playingPlayer.push_back(handshakingPlayer[position]);
+            handshakingPlayer[position]=NULL;
+        }
 };
 
 // This thread handles the server operations

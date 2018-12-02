@@ -22,6 +22,10 @@ public:
     : socket(socket)
     {}
 
+    SocketThread(Socket& socket, Event& e):socket(socket),e(e){}
+
+    Event e;
+
     ~SocketThread()
     {}
 
@@ -32,6 +36,8 @@ public:
 
     virtual long ThreadMain()
     {
+        e.Wait();
+        std::cout<<"threadpass";
         while(!stop)
         {
             try
@@ -84,15 +90,22 @@ public:
 
     }
 
+    Event e;
+
     virtual long ThreadMain()
     {
+        int i=0;
         while(!terminate){
             // Wait for a client socket connection
             Socket* newConnection = new Socket(server.Accept());
             //Make sure you CLOSE all socket at the end
             // Pass a reference to this pointer into a new socket thread
             Socket& socketReference = *newConnection;
-            socketThreads.push(new SocketThread(socketReference));
+            socketThreads.push(new SocketThread(socketReference,e));
+            if(++i==3){
+                e.Trigger();
+                std::cout<<"trigger";
+            }
         }        
     }
 
@@ -100,10 +113,12 @@ public:
         std::cout<<"+++++start termination+++++"<<std::endl;
         terminate=true;
         Event closeWait;
+        
         while(!socketThreads.empty()){
             
             socketThreads.top()->terminate(closeWait);
             //wait the socketthread close the socket
+
             
             closeWait.Wait();
             closeWait.Reset();

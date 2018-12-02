@@ -79,7 +79,7 @@ int main(void)
 	std::cout << "SE3313 Lab 4 Client" << std::endl;
 
 	// Create our socket
-	Socket socket("35.162.177.130", 3000);
+	Socket socket("127.0.0.1", 9631);
 	ClientThread clientThread(socket);
 	clientThread.teminateEvent.Wait();
 	return 0;
