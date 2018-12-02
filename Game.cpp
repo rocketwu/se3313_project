@@ -1,4 +1,10 @@
-#include"game.h"
+#include"Game.h"
+
+const int PlayerManage::shakingNum;
+std::list<Player*> PlayerManage::playingPlayer;
+Player* PlayerManage::handshakingPlayer[shakingNum];
+std::vector<Room*> PlayerManage::rooms;
+ThreadSem* PlayerManage::sem;
 
 void SplitString(const std::string& s, std::vector<std::string>& v, const std::string& c)
 {
@@ -34,12 +40,12 @@ void Room::timeup() {
 	}
 }
 
-Room::Room(Player* firstPlayer, float initTimer = 30) :bidSem(1) {
+Room::Room(Player* firstPlayer, float initTimer) :bidSem(1) {
 	//the room will create when the first player comes in
 	players.push_back(firstPlayer);
 	roundNum = 0;
 	joinAble = true;
-	initTimer = initTimer;
+	this->initTimer = initTimer;
 	timer = 0;
 	logs.push(new Round(0));
 	dialogs.push(new Dialog(0, "", ""));
@@ -97,7 +103,7 @@ Event& Room::getJoinEvent() {
 	return newPlayerJoin;
 }
 
-virtual long Room::ThreadMain() {
+long Room::ThreadMain() {
 	while (joinAble) {
 		while (getPlayerNum() < 2 && joinAble) {
 			//wait for more player
@@ -116,6 +122,10 @@ virtual long Room::ThreadMain() {
 Player::Player(Socket* recSocket, std::string name, Event& event) :DeathEvent(event) 
 { recive = new ReciveData(recSocket, *this, ReciveClose); this->name = name; }
 
+void Player::bindSendSocket(Socket * sendSocket){
+	send = new SendData(sendSocket, *this, SendClose);
+}
+
 void Player::terminatePlayer() {
 	if (!terminate) {
 		terminate = true;
@@ -131,7 +141,7 @@ void Player::terminatePlayer() {
 
 ReciveData::ReciveData(Socket * socketptr, Player& player, Event& closeEvent) :closeEvent(closeEvent), socketptr(socketptr), player(player) {}
 
-virtual long ReciveData::ThreadMain() {
+long ReciveData::ThreadMain() {
 	std::vector<std::string>* data_v;
 	while (!player.terminate) {
 		ByteArray data;
@@ -164,8 +174,14 @@ virtual long ReciveData::ThreadMain() {
 	closeEvent.Trigger();
 }
 void ReciveData::joinRoom(int roomNum) {
-	player.room = PlayerManage::rooms[roomNum];
-	player.room->join(&player);
+	if(roomNum==PlayerManage::rooms.size()){
+		PlayerManage::rooms.push_back(new Room(&player,30));
+		player.room = PlayerManage::rooms[roomNum];
+	}
+	else{
+		player.room = PlayerManage::rooms[roomNum];
+		player.room->join(&player);
+	}	
 	bidSem = player.room->getBidSem();
 	saySem = player.room->getSaySem();
 }
@@ -215,7 +231,7 @@ void ReciveData::leave() {
 
 SendData::SendData(Socket * socketptr, Player& player, Event closeEvent) :closeEvent(closeEvent), socketptr(socketptr), player(player) {}
 
-virtual long SendData::ThreadMain() {
+long SendData::ThreadMain() {
 	while (!player.terminate) {
 		while (player.room->getPlayerNum() < 2) {
 			//waiting for players
@@ -261,7 +277,7 @@ virtual long SendData::ThreadMain() {
 			player.currentPrice = player.room->getCurrentRound()->item.price;
 			socketptr->Write(ByteArray(msg));
 		}
-		if (true) {
+		if (r->roundNum > player.currentRoundNo) {
 			std::string msg = "rank";
 			std::string p1 = "";
 			std::string p2 = "";
@@ -280,13 +296,8 @@ virtual long SendData::ThreadMain() {
 	closeEvent.Trigger();
 }
 
-PlayerManage::PlayerManage(Socket * socketptr) :socketptr(socketptr) {}
+PlayerManage::PlayerManage(Socket * socketptr) :socketptr(socketptr){}
 
-static void PlayerManage::init() {
-	for (int i = 0; i < shakingNum; i++) {
-		handshakingPlayer[i] = NULL;
-	}
-}
 
 void PlayerManage::terminate(Event e) {
 	if (!isRunning) {
@@ -298,7 +309,7 @@ void PlayerManage::terminate(Event e) {
 	}
 }
 
-virtual long PlayerManage::ThreadMain()
+long PlayerManage::ThreadMain()
 {
 	ByteArray data;
 	socketptr->Read(data);
@@ -322,14 +333,14 @@ virtual long PlayerManage::ThreadMain()
 
 void PlayerManage::hey(std::string name) {
 	int position = 0;
-	sem.Wait();
+	sem->Wait();
 	for (position = 0; position < shakingNum; position++) {
 		if (!handshakingPlayer[position]) {
 			thePlayer = handshakingPlayer[position] = new Player(socketptr, name, playerDeadEvent);
 			break;
 		}
 	}
-	sem.Signal();
+	sem->Signal();
 	int room_size = rooms.size();
 	std::string msg_str = "welcome|" + std::to_string(position) + "|" + std::to_string(room_size);
 	for (int i = 0; i < room_size; i++) {
@@ -340,7 +351,7 @@ void PlayerManage::hey(std::string name) {
 
 PlayerAssist::PlayerAssist(Socket * ptr) :socketptr(ptr) {}
 
-virtual long PlayerAssist::ThreadMain() {
+long PlayerAssist::ThreadMain() {
 	ByteArray data;
 	socketptr->Read(data);
 	std::vector<std::string>* data_v = dataPhars(data);

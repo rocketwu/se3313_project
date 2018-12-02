@@ -10,9 +10,9 @@ Server : Server.o thread.o socket.o socketserver.o Blockable.o
 	g++ -o Server Server.o thread.o socket.o socketserver.o Blockable.o -pthread -l rt
 
 ProjectServer : ProjectServer.o thread.o socket.o socketserver.o Blockable.o Game.o
-	g++ -o ProjectServer ProjectServer.o thread.o socket.o socketserver.o Blockable.o -pthread -l rt
+	g++ -o ProjectServer ProjectServer.o thread.o socket.o socketserver.o Blockable.o Game.o -pthread -l rt
 
-Game.o: Game.cpp thread.h socketserver.h Game.h
+Game.o: Game.cpp thread.h socket.h Game.h
 	g++ -c Game.cpp -std=c++11
 
 Blockable.o : Blockable.h Blockable.cpp

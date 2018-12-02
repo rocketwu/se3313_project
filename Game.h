@@ -1,4 +1,3 @@
-#pragma once
 #ifndef GAME_H
 #define GAME_H
 
@@ -13,6 +12,7 @@
 #include <list>
 #include <queue>
 #include <vector>
+using namespace Sync;
 
 //item class
 class Item {
@@ -48,6 +48,30 @@ public:
 	unsigned int dialogNum;
 	std::string content;
 	std::string sayer;
+};
+
+class Room;
+class ReciveData;
+class SendData;
+
+class Player {
+public:
+	std::string name;
+	Room* room;
+	ReciveData* recive;
+	SendData* send;
+	bool terminate = false;
+	bool isYou = false;
+	Event DeathEvent;
+	Event ReciveClose;
+	Event SendClose;
+	unsigned int currentRoundNo = 0;
+	unsigned int currentDialogNum = 5000;// TODO: set this value when server sending first dialog to client
+	unsigned int currentPrice = 0;
+	unsigned int score = 0;
+	Player(Socket* recSocket, std::string name, Event& event);
+	void bindSendSocket(Socket * sendSocket);
+	void terminatePlayer();
 };
 
 class Room : public Thread {
@@ -88,25 +112,6 @@ public:
 
 };
 
-class Player {
-public:
-	std::string name;
-	Room* room;
-	ReciveData* recive;
-	SendData* send;
-	bool terminate = false;
-	bool isYou = false;
-	Event DeathEvent;
-	Event ReciveClose;
-	Event SendClose;
-	unsigned int currentRoundNo = 0;
-	unsigned int currentDialogNum = 5000;// TODO: set this value when server sending first dialog to client
-	unsigned int currentPrice = 0;
-	unsigned int score = 0;
-	Player(Socket* recSocket, std::string name, Event& event);
-	void bindSendSocket(Socket * sendSocket);
-	void terminatePlayer();
-};
 
 class ReciveData : public Thread {
 public:
@@ -144,13 +149,18 @@ public:
 	static std::list<Player*> playingPlayer;
 	static Player* handshakingPlayer[shakingNum];
 	static std::vector<Room*> rooms;
-	static ThreadSem sem;
+	static ThreadSem* sem;
+	static void init() {
+		sem = new ThreadSem(1);
+	for (int i = 0; i < shakingNum; i++) {
+		handshakingPlayer[i] = NULL;
+	}
+}
 	Socket* socketptr;
 	Event playerDeadEvent;
 	Player* thePlayer;
 	bool isRunning = true;
-	PlayerManage(Socket * socketptr) :socketptr(socketptr);
-	static void init();
+	PlayerManage(Socket * socketptr);
 	void terminate(Event e);
 	virtual long ThreadMain();
 private:
@@ -162,7 +172,7 @@ class PlayerAssist : public Thread {
 public:
 	Socket* socketptr;
 	Event isEnd;
-	PlayerAssist(Socket * ptr) :socketptr(ptr);
+	PlayerAssist(Socket * ptr);
 	virtual long ThreadMain();
 private:
 	void thread(std::string thread);

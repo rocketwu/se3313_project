@@ -16,29 +16,6 @@ using namespace Sync;
 
 
 
-void SplitString(const std::string& s, std::vector<std::string>& v, const std::string& c)
-{
-  std::string::size_type pos1, pos2;
-  pos2 = s.find(c);
-  pos1 = 0;
-  while(std::string::npos != pos2)
-  {
-    v.push_back(s.substr(pos1, pos2-pos1));
- 
-    pos1 = pos2 + c.size();
-    pos2 = s.find(c, pos1);
-  }
-  if(pos1 != s.length())
-    v.push_back(s.substr(pos1));
-}
-
-std::vector<std::string>* dataPhars (ByteArray data){
-    std::vector<std::string>* v = new std::vector<std::string>();
-    std::string data_str = data.ToString();
-    SplitString(data_str,*v,"|");
-    return v;
-}
-
 // This thread handles the server operations
 class ServerThread : public Thread
 {
@@ -59,6 +36,7 @@ public:
 
     virtual long ThreadMain()
     {
+        PlayerManage::init();
         while(!terminate){
             // Wait for a client socket connection
             Socket* newConnection = new Socket(server.Accept());
