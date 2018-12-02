@@ -106,6 +106,7 @@ class Room : public Thread{
         std::queue<Dialog*> dialogs;
         unsigned int rank[3];
         std::string rankName[3];
+		Event closeEvent;
         Room(Player* firstPlayer, float initTimer = 30):bidSem(1){
             //the room will create when the first player comes in
             players.push_back(firstPlayer);
@@ -159,6 +160,9 @@ class Room : public Thread{
         }
         void terminateRoom(){
             // TODO: terminate the room
+			joinAble = false;
+			newPlayerJoin.Trigger();
+			closeEvent.Trigger();
         }
 
         Event& getJoinEvent(){
@@ -167,12 +171,12 @@ class Room : public Thread{
 
         virtual long ThreadMain(){
             while(joinAble){
-                while (getPlayerNum()<2){
+                while (getPlayerNum()<2&&joinAble){
                     //wait for more player
                     newPlayerJoin.Wait();
                     newPlayerJoin.Reset();
                 }
-                while (true){
+                while (true&&joinAble){
                     timer-=0.5;
                     if (timer<=0) break;    //confirmed
                     usleep(100000);
@@ -396,11 +400,12 @@ class PlayerManage : public Thread{
         Event playerDeadEvent;
         Player* thePlayer;
         bool isRunning = true;
-        PlayerManage(Socket * socketptr):socketptr(socketptr){
-            for (int i=0;i<shakingNum;i++){
-                handshakingPlayer[i]=NULL;
-            }
-        }
+        PlayerManage(Socket * socketptr):socketptr(socketptr){}
+		static void init() {
+			for (int i = 0; i < shakingNum; i++) {
+				handshakingPlayer[i] = NULL;
+			}
+		}
         void terminate(Event e){
             if (!isRunning){
                 e.Trigger();
@@ -415,12 +420,15 @@ class PlayerManage : public Thread{
             socketptr->Read(data);
             std::vector<std::string>* data_v = dataPhars(data);
 
-            if ((*data_v)[0]=="hey"){
-                hey((*data_v)[1]);
-            }
-            else{
-                thread((*data_v)[1]);
-            }
+            //if ((*data_v)[0]=="hey"){
+            //    hey((*data_v)[1]);
+            //}
+            //else{
+            //    thread((*data_v)[1]);
+            //}
+			
+			hey((*data_v)[1]);
+
             delete data_v;
             playerDeadEvent.Wait();
             playingPlayer.remove(thePlayer);
@@ -445,12 +453,34 @@ class PlayerManage : public Thread{
             }
             socketptr->Write(ByteArray(msg_str));    //send  welcome|<threadid>|<number of rooms>|<masters of room#1>...
         }
-        void thread(std::string thread){
-            int position = std::stoi(thread);
-            handshakingPlayer[position]->bindSendSocket(socketptr);
-            playingPlayer.push_back(handshakingPlayer[position]);
-            handshakingPlayer[position]=NULL;
-        }
+        //void thread(std::string thread){
+        //    int position = std::stoi(thread);
+        //    handshakingPlayer[position]->bindSendSocket(socketptr);
+        //    playingPlayer.push_back(handshakingPlayer[position]);
+        //    handshakingPlayer[position]=NULL;
+        //}
+};
+
+class PlayerAssist : public Thread {
+	public:
+		Socket* socketptr;
+		Event isEnd;
+		PlayerAssist(Socket * ptr) :socketptr(ptr) {}
+		virtual long ThreadMain() {
+			ByteArray data;
+			socketptr->Read(data);
+			std::vector<std::string>* data_v = dataPhars(data);
+			thread((*data_v)[1]);
+			delete data_v;
+			isEnd.Trigger();
+		}
+	private:
+		void thread(std::string thread) {
+			int position = std::stoi(thread);
+			PlayerManage::handshakingPlayer[position]->bindSendSocket(socketptr);
+			PlayerManage::playingPlayer.push_back(PlayerManage::handshakingPlayer[position]);
+			PlayerManage::handshakingPlayer[position] = NULL;
+		}
 };
 
 // This thread handles the server operations
@@ -498,9 +528,50 @@ public:
             socketThreads.pop();
         }
 
+		while (!PlayerManage::rooms.empty())
+		{
+			PlayerManage::rooms.back()->terminateRoom();
+			PlayerManage::rooms.back()->closeEvent.Wait();
+			delete PlayerManage::rooms.back();
+			PlayerManage::rooms.pop_back();
+		}
+
         std::cout<<"All connection has been closed!"<<std::endl;
         finish.Trigger();
     }
+
+};
+
+class AssistThread : public Thread
+{
+private:
+	SocketServer& server;
+	bool terminate = false;
+	std::stack<PlayerAssist*> socketThreads;
+public:
+	AssistThread(SocketServer& server)
+		: server(server)
+	{}
+
+	virtual long ThreadMain()
+	{
+		while (!terminate) {
+			// Wait for a client socket connection
+			Socket* newConnection = new Socket(server.Accept());
+			//Make sure you CLOSE all socket at the end
+			// Pass a reference to this pointer into a new socket thread
+			socketThreads.push(new PlayerAssist(newConnection));
+		}
+	}
+
+	void terminateServer() {
+		terminate = true;
+		while (!socketThreads.empty()) {
+			socketThreads.top()->isEnd.Wait();
+			delete socketThreads.top();
+			socketThreads.pop();
+		}
+	}
 
 };
 
@@ -519,6 +590,9 @@ int main(void)
 
             // Need a thread to perform server operations
             ServerThread serverThread(server);
+
+			SocketServer assist(port + 1);
+			AssistThread assistThread(assist);
             
             std::cout<<"Listening on port# "<<port<<std::endl;
             std::cout.flush();
@@ -529,8 +603,10 @@ int main(void)
 
             Event finish;
             // Shut down and clean up the server
+			assistThread.terminateServer();
             serverThread.terminateServer(finish);    
             server.Shutdown();
+			assist.Shutdown();
             finish.Wait();      //wait for termination of serverThread finish.
             std::cout << "Exit the Program...";
             break;
