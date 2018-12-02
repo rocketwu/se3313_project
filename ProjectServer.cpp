@@ -1,5 +1,6 @@
 #include "thread.h"
 #include "socketserver.h"
+#include "Game.h"
 #include <stdlib.h>
 #include <time.h>
 #include <list>
