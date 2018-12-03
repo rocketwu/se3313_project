@@ -39,32 +39,27 @@ public:
 			teminateEvent.Trigger();
 			return -1;
 		}
-		
+
+		std::cout << "Please input your data (done to exit): ";
+		std::cout.flush();
+		std::getline(std::cin, data_str);
+		data = ByteArray(data_str);
+
+		socket.Write(data);
+
+		int serverStatus=socket.Read(data);
+
+		std::cout << "Server Response: " << data.ToString() << std::endl;
+
 		do{
-			// Get the data
-			std::cout << "Please input your data (done to exit): ";
-			std::cout.flush();
 			std::getline(std::cin, data_str);
 			data = ByteArray(data_str);
 
-			// Write to the server
 			socket.Write(data);
+			serverStatus=socket.Read(data);
 
-			// Get the response
-			int serverStatus=socket.Read(data);
-			
-			if (serverStatus>0){
-				//use serverStatus to test whether the server alive or not
-				std::cout << "Server Response: " << data.ToString() << std::endl;
-			}else if (serverStatus==0){
-				std::cout<<"Server Close the Connection"<<std::endl;
-				break;
-			}else{
-				std::cout<<"Server error-=-=-=-=-=-="<<std::endl;
-				break;
-			}
-			
-		}while(data_str!="done");
+			std::cout << "Server Response: " << data.ToString() << std::endl;
+		}while(serverStatus!=0);
 
 
 		socket.Close();
@@ -79,7 +74,8 @@ int main(void)
 	std::cout << "SE3313 Lab 4 Client" << std::endl;
 
 	// Create our socket
-	Socket socket("35.162.177.130", 9631);
+	//Socket socket("35.162.177.130", 9631);
+	Socket socket("127.0.0.1", 9631);
 	ClientThread clientThread(socket);
 	clientThread.teminateEvent.Wait();
 	return 0;

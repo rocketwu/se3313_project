@@ -33,7 +33,7 @@ public:
 class Round {
 public:
 	Round(unsigned int roundNum)
-		:roundNum(roundNum), payer(""), done(false)
+		:roundNum(roundNum), payer(" "), done(false)
 	{}
 	unsigned int roundNum;
 	std::string payer;
@@ -61,7 +61,7 @@ public:
 	ReciveData* recive;
 	SendData* send;
 	bool terminate = false;
-	bool isYou = false;
+	//bool isYou = false;
 	Event DeathEvent;
 	Event ReciveClose;
 	Event SendClose;
@@ -71,12 +71,13 @@ public:
 	unsigned int score = 0;
 	Player(Socket* recSocket, std::string name, Event& event);
 	void bindSendSocket(Socket * sendSocket);
+	Event inRoom;
 	void terminatePlayer();
 };
 
 class Room : public Thread {
 private:
-	Player* currentPayer;
+	
 	std::list<Player*> players;
 	float initTimer;
 	float timer;
@@ -87,13 +88,15 @@ private:
 	ThreadSem saySem;
 	Event newPlayerJoin;
 	void timeup();
+	
 
 public:
+	Player* currentPayer;
 	std::queue<Dialog*> dialogs;
 	unsigned int rank[3];
 	std::string rankName[3];
 	Event closeEvent;
-	Room(Player* firstPlayer, float initTimer = 30);
+	Room(Player* firstPlayer, float initTimer);
 	Dialog* getCurrentDialog();
 	Round* getCurrentRound();
 	Player* getCurrentPayer();
@@ -133,9 +136,10 @@ private:
 
 class SendData : public Thread {
 public:
-	SendData(Socket * socketptr, Player& player, Event closeEvent);
+	SendData(Socket * socketptr, Player& player, Event closeEvent, Event inRoom);
 	Socket * socketptr;
 	Event closeEvent;
+	Event inRoom;
 	virtual long ThreadMain();
 private:
 	Player& player;
