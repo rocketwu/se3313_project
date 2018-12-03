@@ -57,6 +57,7 @@ public:
 	std::queue<Dialog*> dialogs;
 	//Event closeEvent;
 	Room(Player* firstPlayer);
+	~Room();
 	Dialog* getCurrentDialog();
 	ThreadSem* getSaySem();
 	unsigned int getPlayerNum();

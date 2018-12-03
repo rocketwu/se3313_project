@@ -69,6 +69,7 @@ public:
 			delete PlayerManage::rooms.back();
 			PlayerManage::rooms.pop_back();
 		}
+        delete PlayerManage::sem;
 
         std::cout<<"All connection has been closed!"<<std::endl;
         finish.Trigger();
@@ -143,6 +144,7 @@ int main(void)
             server.Shutdown();
 			assist.Shutdown();
             finish.Wait();      //wait for termination of serverThread finish.
+            sleep(5);
             std::cout << "Exit the Program...";
             break;
             //Cleanup, including exiting clients, when the user presses enter

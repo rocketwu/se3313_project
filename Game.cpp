@@ -39,6 +39,13 @@ Room::Room(Player* firstPlayer):saySem(1) {
 	dialogs.push(new Dialog(0, "", ""));
 }
 
+Room::~Room(){
+	while(!dialogs.empty()){
+		delete dialogs.front();
+		dialogs.pop();
+	}
+}
+
 Dialog* Room::getCurrentDialog() {
 	return (dialogs.back());
 }
