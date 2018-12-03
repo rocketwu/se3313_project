@@ -39,6 +39,13 @@ Room::Room(Player* firstPlayer):saySem(1) {
 	dialogs.push(new Dialog(0, "", ""));
 }
 
+Room::~Room(){
+	while(!dialogs.empty()){
+		delete dialogs.front();
+		dialogs.pop();
+	}
+}
+
 Dialog* Room::getCurrentDialog() {
 	return (dialogs.back());
 }
@@ -70,7 +77,7 @@ void Room::terminateRoom() {
 }
 
 
-Player::Player(Socket* recSocket, std::string name, Event& event) :DeathEvent(event) 
+Player::Player(Socket* recSocket, std::string name, Event& killManage):killManage(killManage)
 { recive = new ReciveData(recSocket, *this, ReciveClose); this->name = name; }
 
 void Player::bindSendSocket(Socket * sendSocket){
@@ -79,7 +86,7 @@ void Player::bindSendSocket(Socket * sendSocket){
 }
 
 void Player::terminatePlayer() {
-	if (!terminate) {
+	//if (!terminate) {
 		terminate = true;
 		// TODO: event trigger before wait??
 		std::cout<<"terminating player "<<name<<std::endl;
@@ -92,8 +99,8 @@ void Player::terminatePlayer() {
 		std::cout<<"deleting recive "<<std::endl;
 		delete recive;
 
-		DeathEvent.Trigger();
-	}
+		room->leave();
+	//}
 
 }
 
@@ -124,11 +131,15 @@ long ReciveData::ThreadMain() {
 		delete data_v;
 		//socketptr->Write(data); //TODO: remove this line
 	}
-	player.terminatePlayer();
-	std::cout<<"end rec";
+	//player.killManage.Trigger();
+	player.terminate=true;
 	socketptr->Close();
 	delete socketptr;
+	std::cout<<"end rec";
 	closeEvent.Trigger();
+	//player.terminatePlayer();
+	
+
 }
 void ReciveData::joinRoom(int roomNum) {
 	if(roomNum>=PlayerManage::rooms.size()){
@@ -149,29 +160,12 @@ void ReciveData::say(std::string content) {
 
 	saySem->Signal();
 }
-// void ReciveData::leave() {
-	
-// 	saySem = NULL;
-// 	player.room->leave();
-// 	player.room = NULL;
-
-// 	//send new rooms info
-// 	int position = 0;
-// 	int room_size = PlayerManage::rooms.size();
-// 	std::string msg_str = "welcome|" + std::to_string(position) + "|" + std::to_string(room_size);
-// 	for (int i = 0; i < room_size; i++) {
-// 		msg_str += "|" + std::to_string(PlayerManage::rooms[i]->getPlayerNum());
-// 	}
-// 	socketptr->Write(ByteArray(msg_str));
-
-// }
 
 SendData::SendData(Socket * socketptr, Player& player, Event closeEvent, Event inRoom): inRoom(inRoom), closeEvent(closeEvent), socketptr(socketptr), player(player) {}
 
 long SendData::ThreadMain() {
 	inRoom.Wait();
 	socketptr->Write(ByteArray("Welcome to room"));
-	bool updated=false;
 	while (!player.terminate) {
 		while (!player.room){
 			sleep(1);
@@ -191,23 +185,22 @@ long SendData::ThreadMain() {
 		}
 
 	}
-	player.terminatePlayer();
+	//player.killManage.Trigger();
 	socketptr->Close();
 	delete socketptr;
+	player.killManage.Trigger();
 	closeEvent.Trigger();
+	//player.terminatePlayer();
 }
 
 PlayerManage::PlayerManage(Socket * socketptr) :socketptr(socketptr){}
 
 
 void PlayerManage::terminate(Event e) {
-	if (!isRunning) {
-		e.Trigger();
-	}
-	else {
-		thePlayer->terminatePlayer();
-		e.Trigger();
-	}
+	terminatePlayer.Trigger();
+	isRunning.Wait();
+	e.Trigger();
+	
 }
 
 long PlayerManage::ThreadMain()
@@ -218,10 +211,12 @@ long PlayerManage::ThreadMain()
 
 	hey((*data_v)[1]);
 	delete data_v;
-	playerDeadEvent.Wait();
+	terminatePlayer.Wait();	//anyone who want to terminate the player, need to trigger this event
+	std::cout<<"pass wait"<<std::endl;
+	thePlayer->terminatePlayer();
 	playingPlayer.remove(thePlayer);
 	delete thePlayer;
-	isRunning = false;
+	isRunning.Trigger();
 }
 
 void PlayerManage::hey(std::string name) {
@@ -229,7 +224,7 @@ void PlayerManage::hey(std::string name) {
 	sem->Wait();
 	for (position = 0; position < shakingNum; position++) {
 		if (!handshakingPlayer[position]) {
-			thePlayer = handshakingPlayer[position] = new Player(socketptr, name, playerDeadEvent);
+			thePlayer = handshakingPlayer[position] = new Player(socketptr, name, terminatePlayer);
 			break;
 		}
 	}

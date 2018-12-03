@@ -34,11 +34,11 @@ public:
 	SendData* send;
 	bool terminate = false;
 	//bool isYou = false;
-	Event DeathEvent;
 	Event ReciveClose;
 	Event SendClose;
+	Event killManage;
 	unsigned int currentDialogNum = 0;// TODO: set this value when server sending first dialog to client
-	Player(Socket* recSocket, std::string name, Event& event);
+	Player(Socket* recSocket, std::string name, Event& killManage);
 	void bindSendSocket(Socket * sendSocket);
 	Event inRoom;
 	void terminatePlayer();
@@ -55,8 +55,9 @@ public:
 
 	unsigned int playerNum;
 	std::queue<Dialog*> dialogs;
-	Event closeEvent;
+	//Event closeEvent;
 	Room(Player* firstPlayer);
+	~Room();
 	Dialog* getCurrentDialog();
 	ThreadSem* getSaySem();
 	unsigned int getPlayerNum();
@@ -110,9 +111,9 @@ public:
 	}
 }
 	Socket* socketptr;
-	Event playerDeadEvent;
+	Event terminatePlayer;
 	Player* thePlayer;
-	bool isRunning = true;
+	Event isRunning;
 	PlayerManage(Socket * socketptr);
 	void terminate(Event e);
 	virtual long ThreadMain();
