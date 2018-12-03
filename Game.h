@@ -78,11 +78,7 @@ public:
 class Room : public Thread {
 private:
 	
-<<<<<<< HEAD
-	std::list<Player*> players;
-=======
-	//std::list<Player*> players;
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
+
 	float initTimer;
 	float timer;
 	unsigned int roundNum;
@@ -95,13 +91,11 @@ private:
 	
 
 public:
-<<<<<<< HEAD
-=======
+
 	unsigned int playerNum;
 	bool running;
 	Round* lastRound;
 	Player* lastPayer;
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 	Player* currentPayer;
 	std::queue<Dialog*> dialogs;
 	unsigned int rank[3];

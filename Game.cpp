@@ -31,14 +31,6 @@ std::vector<std::string>* dataPhars(ByteArray data) {
 
 void Room::timeup() {
 	getCurrentRound()->done = true;
-<<<<<<< HEAD
-	getCurrentRound()->payer = currentPayer->name;
-	resetTimer();
-	
-	sleep(2);
-	logs.push(new Round(++roundNum));
-	currentPayer==NULL;
-=======
 	getCurrentRound()->payer=currentPayer->name;
 	lastRound=getCurrentRound();
 	lastPayer = currentPayer;
@@ -46,18 +38,13 @@ void Room::timeup() {
 	logs.push(new Round(++roundNum));
 	//sleep(1);	
 	currentPayer = nullptr;
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 	// if (logs.size() > 5) {
 	// 	delete logs.back();
 	// 	logs.pop();
 	// }
 }
 
-<<<<<<< HEAD
-Room::Room(Player* firstPlayer, float initTimer) :bidSem(1),saySem(1) {
-=======
 Room::Room(Player* firstPlayer, float initTimer) :bidSem(1), saySem(1) {
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 	//the room will create when the first player comes in
 	//players.push_back(firstPlayer);
 	running=false;
@@ -173,15 +160,7 @@ long ReciveData::ThreadMain() {
 	std::vector<std::string>* data_v;
 	while (!player.terminate) {
 		ByteArray data;
-<<<<<<< HEAD
-		int clientStatus = socketptr->Read(data);	//FIXME: unblockable read needed
-		// if (clientStatus == 0) {
-		// 	std::cout << "client disconnected" << std::endl;
-		// 	player.terminatePlayer();
-		// }
-=======
 		int clientStatus = socketptr->Read(data);
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		std::string data_str = data.ToString();
 		data_v = dataPhars(data);
 		std::string action = (*data_v)[0];
@@ -229,10 +208,7 @@ void ReciveData::bid(int newPrice) {
 	if (player.room->getCurrentRound()->item.price < newPrice) {
 		player.room->getCurrentRound()->item.price = newPrice;
 		player.room->getCurrentRound()->payer = player.name;
-<<<<<<< HEAD
-=======
 		std::cout<<player.room->getCurrentRound()->payer<<":"<<player.name<<std::endl;
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		player.room->currentPayer = &player;
 		player.room->resetTimer();
 	}
@@ -278,17 +254,6 @@ long SendData::ThreadMain() {
 	socketptr->Write(ByteArray("Welcome to room"));
 	bool updated=false;
 	while (!player.terminate) {
-<<<<<<< HEAD
-		
-		while (player.room->getPlayerNum() < 2) {
-			//waiting for players
-			player.room->getJoinEvent().Wait();
-			
-		}
-		if(updated)
-		//socketptr->Write(ByteArray("updated"));
-		updated = false;
-=======
 		while (!player.room){
 			sleep(1);
 		}
@@ -299,18 +264,12 @@ long SendData::ThreadMain() {
 			//socketptr->Write(ByteArray(std::to_string(player.room->getPlayerNum())));
 		}
 		
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		//normal running
 		Round* r = player.room->getCurrentRound();
 		Dialog* d = player.room->getCurrentDialog();
 		if (r->roundNum > player.currentRoundNo) {
-<<<<<<< HEAD
-			std::string msg = "round|" + std::to_string(r->roundNum) + "|" + r->payer + "|";
-			if (player.room->currentPayer== &player) {
-=======
 			std::string msg = "round|" + std::to_string(player.room->lastRound->roundNum) + "|" + player.room->lastRound->payer + "|";
 			if (player.room->lastPayer==&player) {
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 				msg += "1";
 				player.score += player.room->lastRound->item.score;
 			}
@@ -322,14 +281,7 @@ long SendData::ThreadMain() {
 			usleep(1000);
 			msg = "item|" + std::to_string(r->item.id) + "|" + std::to_string(r->item.price) + "|" + std::to_string(r->item.score);
 			socketptr->Write(ByteArray(msg));
-<<<<<<< HEAD
-			player.currentRoundNo = r->roundNum;
-			player.currentPrice=r->item.price;
-			updated = true;
-			
-=======
 			player.currentPrice=r->item.price;			
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		}
 		
 		if (d->dialogNum > player.currentDialogNum) {
@@ -351,11 +303,6 @@ long SendData::ThreadMain() {
 			msg=msg+"|"+payer;
 			socketptr->Write(ByteArray(msg));
 			player.currentDialogNum=d->dialogNum;
-<<<<<<< HEAD
-			updated = true;
-			usleep(100);
-=======
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		}
 		if (player.currentPrice < player.room->getCurrentRound()->item.price) {
 			std::string msg = "price|" + std::to_string(player.room->getCurrentRound()->item.price);
@@ -374,12 +321,8 @@ long SendData::ThreadMain() {
 			}
 			msg = msg + p1 + p2;
 			socketptr->Write(ByteArray(msg));
-<<<<<<< HEAD
-			updated = true;
-			usleep(100);
-=======
+
 			player.currentRoundNo = r->roundNum;
->>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		}
 
 	}
