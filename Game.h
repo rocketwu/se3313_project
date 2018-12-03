@@ -77,7 +77,7 @@ public:
 class Room : public Thread {
 private:
 	
-	std::list<Player*> players;
+	//std::list<Player*> players;
 	float initTimer;
 	float timer;
 	unsigned int roundNum;
@@ -89,6 +89,7 @@ private:
 	void timeup();
 
 public:
+	unsigned int playerNum;
 	Round* lastRound;
 	Player* lastPayer;
 	Player* currentPayer;
@@ -105,8 +106,10 @@ public:
 	void resetTimer();
 	unsigned int getPlayerNum();
 	float getTime();
-	bool join(Player* newPlayer);
-	bool leave(Player* thePlayer);
+	// void join(Player* newPlayer);
+	// bool leave(Player* thePlayer);
+	void join();
+	void leave();
 	void terminateRoom();
 
 	Event& getJoinEvent();

@@ -46,7 +46,8 @@ void Room::timeup() {
 
 Room::Room(Player* firstPlayer, float initTimer) :bidSem(1), saySem(1) {
 	//the room will create when the first player comes in
-	players.push_back(firstPlayer);
+	//players.push_back(firstPlayer);
+	playerNum=1;
 	roundNum = 0;
 	joinAble = true;
 	this->initTimer = initTimer;
@@ -56,6 +57,8 @@ Room::Room(Player* firstPlayer, float initTimer) :bidSem(1), saySem(1) {
 	rank[0] = 0;
 	rank[1] = 0;
 	rank[2] = 0;
+	lastPayer=firstPlayer;
+	lastRound=logs.front();
 }
 
 Dialog* Room::getCurrentDialog() {
@@ -81,20 +84,21 @@ void Room::resetTimer() {
 	timer = initTimer;
 }
 unsigned int Room::getPlayerNum() {
-	return players.size();
+	return playerNum;
 }
 float Room::getTime() {
 	return timer;
 }
-bool Room::join(Player* newPlayer) {
-	players.push_back(newPlayer);
+void Room::join() {
+	// players.push_back(newPlayer);
+	playerNum++;
 	newPlayerJoin.Trigger();
-	return true;
 }
-bool Room::leave(Player* thePlayer) {
+void Room::leave() {
 	// TODO: list.remove may mulfunction
-	players.remove(thePlayer);
-	return true;
+	//players.remove(thePlayer);
+	playerNum--;
+	//return true;
 }
 void Room::terminateRoom() {
 	// TODO: terminate the room
@@ -182,7 +186,7 @@ void ReciveData::joinRoom(int roomNum) {
 	}
 	else{
 		player.room = PlayerManage::rooms[roomNum];
-		player.room->join(&player);
+		player.room->join();
 	}	
 	bidSem = player.room->getBidSem();
 	saySem = player.room->getSaySem();
@@ -216,7 +220,7 @@ void ReciveData::leave() {
 	}
 	bidSem = NULL;
 	saySem = NULL;
-	player.room->leave(&player);
+	player.room->leave();
 	player.room = NULL;
 
 	//send new rooms info
@@ -234,9 +238,15 @@ SendData::SendData(Socket * socketptr, Player& player, Event closeEvent) :closeE
 
 long SendData::ThreadMain() {
 	while (!player.terminate) {
+		while (!player.room){
+			sleep(1);
+		}
+		//socketptr->Write(ByteArray(std::to_string(player.room->getCurrentRound()->item.score)));
 		while (player.room->getPlayerNum() < 2) {
 			//waiting for players
 			player.room->getJoinEvent().Wait();
+			player.room->getJoinEvent().Reset();
+			//socketptr->Write(ByteArray(std::to_string(player.room->getPlayerNum())));
 		}
 		//normal running
 		Round* r = player.room->getCurrentRound();
@@ -245,7 +255,7 @@ long SendData::ThreadMain() {
 			std::string msg = "round|" + std::to_string(player.room->lastRound->roundNum) + "|" + player.room->lastRound->payer + "|";
 			if (player.room->lastPayer==&player) {
 				msg += "1";
-				player.score += r->item.score;
+				player.score += player.room->lastRound->item.score;
 			}
 			else {
 				msg += "0";
@@ -272,6 +282,7 @@ long SendData::ThreadMain() {
 			else {
 				msg = "dialog|" + content;
 			}
+			msg=msg+payer;
 			socketptr->Write(ByteArray(msg));
 			player.currentDialogNum=d->dialogNum;
 		}
