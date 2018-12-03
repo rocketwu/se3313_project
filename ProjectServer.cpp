@@ -26,7 +26,7 @@ private:
 public:
     ServerThread(SocketServer& server)
     : server(server)
-    {}
+    {terminate = false;}
 
     ~ServerThread()
     {
@@ -121,13 +121,14 @@ int main(void)
             std::cout<<"trying to listen port# "<<port<<std::endl;            
             // Create our server
             SocketServer server(port);    
-
+            std::cout<<"1st socket create "<<std::endl;
             // Need a thread to perform server operations
             ServerThread serverThread(server);
-
+            std::cout<<"1st thread create "<<std::endl;
 			SocketServer assist(port + 1);
+            std::cout<<"2st socket create "<<std::endl;
 			AssistThread assistThread(assist);
-            
+            std::cout<<"2st thread create "<<std::endl;
             std::cout<<"Listening on port# "<<port<<std::endl;
             std::cout.flush();
             // This will wait for input to shutdown the server
