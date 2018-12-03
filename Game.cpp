@@ -31,9 +31,12 @@ std::vector<std::string>* dataPhars(ByteArray data) {
 
 void Room::timeup() {
 	getCurrentRound()->done = true;
+	getCurrentRound()->payer=currentPayer->name;
+	lastRound=getCurrentRound();
+	lastPayer = currentPayer;
 	resetTimer();
-	sleep(2);
 	logs.push(new Round(++roundNum));
+	//sleep(1);	
 	currentPayer = nullptr;
 	// if (logs.size() > 5) {
 	// 	delete logs.back();
@@ -189,6 +192,7 @@ void ReciveData::bid(int newPrice) {
 	if (player.room->getCurrentRound()->item.price < newPrice) {
 		player.room->getCurrentRound()->item.price = newPrice;
 		player.room->getCurrentRound()->payer = player.name;
+		std::cout<<player.room->getCurrentRound()->payer<<":"<<player.name<<std::endl;
 		player.room->currentPayer = &player;
 		player.room->resetTimer();
 	}
@@ -238,8 +242,8 @@ long SendData::ThreadMain() {
 		Round* r = player.room->getCurrentRound();
 		Dialog* d = player.room->getCurrentDialog();
 		if (r->roundNum > player.currentRoundNo) {
-			std::string msg = "round|" + std::to_string(r->roundNum) + "|" + r->payer + "|";
-			if (player.room->getCurrentPayer()==&player) {
+			std::string msg = "round|" + std::to_string(player.room->lastRound->roundNum) + "|" + player.room->lastRound->payer + "|";
+			if (player.room->lastPayer==&player) {
 				msg += "1";
 				player.score += r->item.score;
 			}

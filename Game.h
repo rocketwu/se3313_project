@@ -89,6 +89,8 @@ private:
 	void timeup();
 
 public:
+	Round* lastRound;
+	Player* lastPayer;
 	Player* currentPayer;
 	std::queue<Dialog*> dialogs;
 	unsigned int rank[3];
