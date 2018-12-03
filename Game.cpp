@@ -34,6 +34,7 @@ void Room::timeup() {
 	resetTimer();
 	sleep(2);
 	logs.push(new Round(++roundNum));
+	currentPayer = nullptr;
 	// if (logs.size() > 5) {
 	// 	delete logs.back();
 	// 	logs.pop();
@@ -189,6 +190,7 @@ void ReciveData::bid(int newPrice) {
 		player.room->getCurrentRound()->item.price = newPrice;
 		player.room->getCurrentRound()->payer = player.name;
 		player.room->currentPayer = &player;
+		player.room->resetTimer();
 	}
 	//player.currentPrice=player.room->getCurrentRound()->item.price;
 	bidSem->Signal();
@@ -248,7 +250,7 @@ long SendData::ThreadMain() {
 			usleep(1000);
 			msg = "item|" + std::to_string(r->item.id) + "|" + std::to_string(r->item.price) + "|" + std::to_string(r->item.score);
 			socketptr->Write(ByteArray(msg));
-			player.currentRoundNo = r->roundNum;
+			player.currentPrice=r->item.price;			
 		}
 		if (d->dialogNum > player.currentDialogNum) {
 			std::string content = d->content;
@@ -284,6 +286,7 @@ long SendData::ThreadMain() {
 			}
 			msg = msg + p1 + p2;
 			socketptr->Write(ByteArray(msg));
+			player.currentRoundNo = r->roundNum;
 		}
 
 	}

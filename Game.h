@@ -66,7 +66,7 @@ public:
 	Event ReciveClose;
 	Event SendClose;
 	unsigned int currentRoundNo = 0;
-	unsigned int currentDialogNum = 5000;// TODO: set this value when server sending first dialog to client
+	unsigned int currentDialogNum = 0;// TODO: set this value when server sending first dialog to client
 	unsigned int currentPrice = 0;
 	unsigned int score = 0;
 	Player(Socket* recSocket, std::string name, Event& event);
