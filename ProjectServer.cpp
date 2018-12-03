@@ -65,7 +65,7 @@ public:
 		while (!PlayerManage::rooms.empty())
 		{
 			PlayerManage::rooms.back()->terminateRoom();
-			PlayerManage::rooms.back()->closeEvent.Wait();
+			//PlayerManage::rooms.back()->closeEvent.Wait();
 			delete PlayerManage::rooms.back();
 			PlayerManage::rooms.pop_back();
 		}

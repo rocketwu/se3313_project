@@ -49,8 +49,8 @@ public:
 			socket.Write(data);
 
 			// Get the response
-			int serverStatus=socket.Read(data);
-			std::cout << "Server Response: " << data.ToString() << std::endl;
+			 int serverStatus=socket.Read(data);
+			 std::cout << "Server Response: " << data.ToString() << std::endl;
 
 		
 		do{
@@ -61,8 +61,8 @@ public:
 			std::getline(std::cin, data_str);
 			data = ByteArray(data_str);
 
-			// Write to the server
 			socket.Write(data);
+			// serverStatus=socket.Read(data);
 
 			
 		}while(data_str!="done");

@@ -29,66 +29,28 @@ std::vector<std::string>* dataPhars(ByteArray data) {
 	return v;
 }
 
-void Room::timeup() {
-	getCurrentRound()->done = true;
-	getCurrentRound()->payer=currentPayer->name;
-	lastRound=getCurrentRound();
-	lastPayer = currentPayer;
-	resetTimer();
-	logs.push(new Round(++roundNum));
-	//sleep(1);	
-	currentPayer = nullptr;
-	// if (logs.size() > 5) {
-	// 	delete logs.back();
-	// 	logs.pop();
-	// }
-}
 
-Room::Room(Player* firstPlayer, float initTimer) :bidSem(1), saySem(1) {
+
+Room::Room(Player* firstPlayer):saySem(1) {
 	//the room will create when the first player comes in
 	//players.push_back(firstPlayer);
-	running=false;
 	playerNum=1;
-	roundNum = 0;
 	joinAble = true;
-	this->initTimer = initTimer;
-	timer = 0;
-	logs.push(new Round(0));
 	dialogs.push(new Dialog(0, "", ""));
-	rank[0] = 0;
-	rank[1] = 0;
-	rank[2] = 0;
-	lastPayer=firstPlayer;
-	lastRound=logs.front();
 }
 
 Dialog* Room::getCurrentDialog() {
 	return (dialogs.back());
 }
 
-Round* Room::getCurrentRound() {
-	//player thread will get the round, to get info it needs
-	return (logs.back());
-}
-Player* Room::getCurrentPayer() {
-	return currentPayer;
-}
-ThreadSem* Room::getBidSem() {
-	// TODO: sem may be mulfunctional
-	return &bidSem;
-}
+
+
 ThreadSem* Room::getSaySem() {
 	// TODO: sem may be mulfunctional
 	return &saySem;
 }
-void Room::resetTimer() {
-	timer = initTimer;
-}
 unsigned int Room::getPlayerNum() {
 	return playerNum;
-}
-float Room::getTime() {
-	return timer;
 }
 void Room::join() {
 	// players.push_back(newPlayer);
@@ -104,45 +66,32 @@ void Room::leave() {
 void Room::terminateRoom() {
 	// TODO: terminate the room
 	joinAble = false;
-	newPlayerJoin.Trigger();
-	closeEvent.Trigger();
+	//closeEvent.Trigger();
 }
 
-Event& Room::getJoinEvent() {
-	return newPlayerJoin;
-}
-
-long Room::ThreadMain() {
-	while (joinAble) {
-		while (getPlayerNum() < 2 && joinAble) {
-			//wait for more player
-			newPlayerJoin.Wait();
-			newPlayerJoin.Reset();
-		}
-		while (true && joinAble) {
-			timer -= 0.5;
-			if (timer <= 0) break;    //confirmed
-			usleep(100000);
-		}
-		timeup();
-	}
-}
 
 Player::Player(Socket* recSocket, std::string name, Event& event) :DeathEvent(event) 
 { recive = new ReciveData(recSocket, *this, ReciveClose); this->name = name; }
 
 void Player::bindSendSocket(Socket * sendSocket){
-	send = new SendData(sendSocket, *this, SendClose);
+	currentDialogNum=0;
+	send = new SendData(sendSocket, *this, SendClose, inRoom);
 }
 
 void Player::terminatePlayer() {
 	if (!terminate) {
 		terminate = true;
 		// TODO: event trigger before wait??
-		ReciveClose.Wait();
-		delete recive;
+		std::cout<<"terminating player "<<name<<std::endl;
+		
 		SendClose.Wait();
+		std::cout<<"deleting send "<<std::endl;
 		delete send;
+
+		ReciveClose.Wait();
+		std::cout<<"deleting recive "<<std::endl;
+		delete recive;
+
 		DeathEvent.Trigger();
 	}
 
@@ -152,157 +101,93 @@ ReciveData::ReciveData(Socket * socketptr, Player& player, Event& closeEvent) :c
 
 long ReciveData::ThreadMain() {
 	std::vector<std::string>* data_v;
-	while (!player.terminate) {
+	int clientStatus=1;
+	while ((!player.terminate)) {
 		ByteArray data;
-		int clientStatus = socketptr->Read(data);
+		clientStatus = socketptr->Read(data);
 		std::string data_str = data.ToString();
 		data_v = dataPhars(data);
 		std::string action = (*data_v)[0];
-		if (action == "room") {
+		if (action == "say" || action == "dialog") {
+			say((*data_v)[1]);
+		}else if(action == "room"){
 			int roomNum = std::stoi((*data_v)[1]);
 			joinRoom(roomNum);
-		}
-		else if (action == "price") {
-			int newPrice = std::stoi((*data_v)[1]);
-			bid(newPrice);
-		}
-		else if (action == "say" || action == "dialog") {
-			say((*data_v)[1]);
-		}
-		else if (action == "leave") {
-			leave();
+		// }
+		// else if (action == "leave") {
+		// 	leave();
 		}else if (action == "done"){
-			player.terminatePlayer();
+			std::cout<<"end rec";
+			delete data_v;
+			break;
 		}
 		delete data_v;
+		//socketptr->Write(data); //TODO: remove this line
 	}
+	player.terminatePlayer();
+	std::cout<<"end rec";
 	socketptr->Close();
 	delete socketptr;
 	closeEvent.Trigger();
 }
 void ReciveData::joinRoom(int roomNum) {
-	if(roomNum==PlayerManage::rooms.size()){
-		PlayerManage::rooms.push_back(new Room(&player,30));
-		player.room = PlayerManage::rooms[roomNum];
+	if(roomNum>=PlayerManage::rooms.size()){
+		PlayerManage::rooms.push_back(new Room(&player));
+		player.room = PlayerManage::rooms[PlayerManage::rooms.size()-1];
 	}
 	else{
 		player.room = PlayerManage::rooms[roomNum];
 		player.room->join();
 	}	
-	bidSem = player.room->getBidSem();
 	saySem = player.room->getSaySem();
-}
-void ReciveData::bid(int newPrice) {
-	bidSem->Wait();
-	if (player.room->getCurrentRound()->item.price < newPrice) {
-		player.room->getCurrentRound()->item.price = newPrice;
-		player.room->getCurrentRound()->payer = player.name;
-		std::cout<<player.room->getCurrentRound()->payer<<":"<<player.name<<std::endl;
-		player.room->currentPayer = &player;
-		player.room->resetTimer();
-	}
-	//player.currentPrice=player.room->getCurrentRound()->item.price;
-	bidSem->Signal();
+	player.inRoom.Trigger();
 }
 void ReciveData::say(std::string content) {
 	saySem->Wait();
 	player.currentDialogNum = player.room->getCurrentDialog()->dialogNum;
-	player.room->dialogs.push(new Dialog(++player.currentDialogNum, content, player.name));
+	player.room->dialogs.push(new Dialog((player.currentDialogNum)+1, content, player.name));
 
 	saySem->Signal();
 }
-void ReciveData::leave() {
-	for (int i = 0; i < 3; i++) {
-		if (player.room->rank[i] < player.score) {
-			player.room->rank[i] = player.score;
-			player.room->rankName[i] = player.name;
-			break;
-		}
-	}
-	bidSem = NULL;
-	saySem = NULL;
-	player.room->leave();
-	player.room = NULL;
+// void ReciveData::leave() {
+	
+// 	saySem = NULL;
+// 	player.room->leave();
+// 	player.room = NULL;
 
-	//send new rooms info
-	int position = 0;
-	int room_size = PlayerManage::rooms.size();
-	std::string msg_str = "welcome|" + std::to_string(position) + "|" + std::to_string(room_size);
-	for (int i = 0; i < room_size; i++) {
-		msg_str += "|" + std::to_string(PlayerManage::rooms[i]->getPlayerNum());
-	}
-	socketptr->Write(ByteArray(msg_str));
+// 	//send new rooms info
+// 	int position = 0;
+// 	int room_size = PlayerManage::rooms.size();
+// 	std::string msg_str = "welcome|" + std::to_string(position) + "|" + std::to_string(room_size);
+// 	for (int i = 0; i < room_size; i++) {
+// 		msg_str += "|" + std::to_string(PlayerManage::rooms[i]->getPlayerNum());
+// 	}
+// 	socketptr->Write(ByteArray(msg_str));
 
-}
+// }
 
-SendData::SendData(Socket * socketptr, Player& player, Event closeEvent) :closeEvent(closeEvent), socketptr(socketptr), player(player) {}
+SendData::SendData(Socket * socketptr, Player& player, Event closeEvent, Event inRoom): inRoom(inRoom), closeEvent(closeEvent), socketptr(socketptr), player(player) {}
 
 long SendData::ThreadMain() {
+	inRoom.Wait();
+	socketptr->Write(ByteArray("Welcome to room"));
+	bool updated=false;
 	while (!player.terminate) {
 		while (!player.room){
 			sleep(1);
 		}
 		//socketptr->Write(ByteArray(std::to_string(player.room->getCurrentRound()->item.score)));
-		while (player.room->getPlayerNum() < 2) {
-			//waiting for players
-			sleep(1);
-			//socketptr->Write(ByteArray(std::to_string(player.room->getPlayerNum())));
-		}
 		
 		//normal running
-		Round* r = player.room->getCurrentRound();
-		Dialog* d = player.room->getCurrentDialog();
-		if (r->roundNum > player.currentRoundNo) {
-			std::string msg = "round|" + std::to_string(player.room->lastRound->roundNum) + "|" + player.room->lastRound->payer + "|";
-			if (player.room->lastPayer==&player) {
-				msg += "1";
-				player.score += player.room->lastRound->item.score;
-			}
-			else {
-				msg += "0";
-			}
-			socketptr->Write(ByteArray(msg));
-			usleep(1000);
-			msg = "item|" + std::to_string(r->item.id) + "|" + std::to_string(r->item.price) + "|" + std::to_string(r->item.score);
-			socketptr->Write(ByteArray(msg));
-			player.currentPrice=r->item.price;			
-		}
+		Dialog* d = player.room->getCurrentDialog();		
 		if (d->dialogNum > player.currentDialogNum) {
 			std::string content = d->content;
 			std::string payer = d->sayer;
 			std::string msg;
-			if (content.size() == 1) {
-				try {
-					std::stoi(content);
-					msg = "say|" + content;
-				}
-				catch (...) {
-					msg = "dialog|" + content;
-				}
-			}
-			else {
-				msg = "dialog|" + content;
-			}
+			msg = "dialog|" + content;
 			msg=msg+"|"+payer;
 			socketptr->Write(ByteArray(msg));
 			player.currentDialogNum=d->dialogNum;
-		}
-		if (player.currentPrice < player.room->getCurrentRound()->item.price) {
-			std::string msg = "price|" + std::to_string(player.room->getCurrentRound()->item.price);
-			player.currentPrice = player.room->getCurrentRound()->item.price;
-			socketptr->Write(ByteArray(msg));
-		}
-		if (r->roundNum > player.currentRoundNo) {
-			std::string msg = "rank";
-			std::string p1 = "";
-			std::string p2 = "";
-			for (int i = 0; i < 3; i++) {
-				p1 += "|" + player.room->rankName[i];
-				p2 += "|" + player.room->rank[i];
-			}
-			msg = msg + p1 + p2;
-			socketptr->Write(ByteArray(msg));
-			player.currentRoundNo = r->roundNum;
 		}
 
 	}
@@ -331,15 +216,7 @@ long PlayerManage::ThreadMain()
 	socketptr->Read(data);
 	std::vector<std::string>* data_v = dataPhars(data);
 
-	//if ((*data_v)[0]=="hey"){
-	//    hey((*data_v)[1]);
-	//}
-	//else{
-	//    thread((*data_v)[1]);
-	//}
-
 	hey((*data_v)[1]);
-
 	delete data_v;
 	playerDeadEvent.Wait();
 	playingPlayer.remove(thePlayer);
