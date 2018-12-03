@@ -76,7 +76,7 @@ public:
 
 class Room : public Thread {
 private:
-	Player* currentPayer;
+	
 	std::list<Player*> players;
 	float initTimer;
 	float timer;
@@ -89,6 +89,7 @@ private:
 	void timeup();
 
 public:
+	Player* currentPayer;
 	std::queue<Dialog*> dialogs;
 	unsigned int rank[3];
 	std::string rankName[3];

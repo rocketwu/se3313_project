@@ -146,10 +146,6 @@ long ReciveData::ThreadMain() {
 	while (!player.terminate) {
 		ByteArray data;
 		int clientStatus = socketptr->Read(data);
-		if (clientStatus == 0) {
-			std::cout << "client disconnected" << std::endl;
-			player.terminatePlayer();
-		}
 		std::string data_str = data.ToString();
 		data_v = dataPhars(data);
 		std::string action = (*data_v)[0];
@@ -166,6 +162,8 @@ long ReciveData::ThreadMain() {
 		}
 		else if (action == "leave") {
 			leave();
+		}else if (action == "done"){
+			player.terminatePlayer();
 		}
 		delete data_v;
 	}
@@ -190,10 +188,7 @@ void ReciveData::bid(int newPrice) {
 	if (player.room->getCurrentRound()->item.price < newPrice) {
 		player.room->getCurrentRound()->item.price = newPrice;
 		player.room->getCurrentRound()->payer = player.name;
-		player.isYou = true;
-	}
-	else {
-		player.isYou = false;
+		player.room->currentPayer = &player;
 	}
 	//player.currentPrice=player.room->getCurrentRound()->item.price;
 	bidSem->Signal();
@@ -242,7 +237,7 @@ long SendData::ThreadMain() {
 		Dialog* d = player.room->getCurrentDialog();
 		if (r->roundNum > player.currentRoundNo) {
 			std::string msg = "round|" + std::to_string(r->roundNum) + "|" + r->payer + "|";
-			if (player.isYou) {
+			if (player.room->getCurrentPayer()==&player) {
 				msg += "1";
 				player.score += r->item.score;
 			}

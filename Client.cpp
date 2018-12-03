@@ -39,10 +39,8 @@ public:
 			teminateEvent.Trigger();
 			return -1;
 		}
-		
-		do{
-			// Get the data
-			std::cout << "Please input your data (done to exit): ";
+
+					std::cout << "Please input your data (done to exit): ";
 			std::cout.flush();
 			std::getline(std::cin, data_str);
 			data = ByteArray(data_str);
@@ -52,17 +50,20 @@ public:
 
 			// Get the response
 			int serverStatus=socket.Read(data);
-			
-			if (serverStatus>0){
-				//use serverStatus to test whether the server alive or not
-				std::cout << "Server Response: " << data.ToString() << std::endl;
-			}else if (serverStatus==0){
-				std::cout<<"Server Close the Connection"<<std::endl;
-				break;
-			}else{
-				std::cout<<"Server error-=-=-=-=-=-="<<std::endl;
-				break;
-			}
+			std::cout << "Server Response: " << data.ToString() << std::endl;
+
+		
+		do{
+			// Get the data
+
+			std::cout << "Please input your data (done to exit): ";
+			std::cout.flush();
+			std::getline(std::cin, data_str);
+			data = ByteArray(data_str);
+
+			// Write to the server
+			socket.Write(data);
+
 			
 		}while(data_str!="done");
 
