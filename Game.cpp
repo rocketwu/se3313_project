@@ -34,13 +34,13 @@ void Room::timeup() {
 	resetTimer();
 	sleep(2);
 	logs.push(new Round(++roundNum));
-	if (logs.size() > 5) {
-		delete logs.back();
-		logs.pop();
-	}
+	// if (logs.size() > 5) {
+	// 	delete logs.back();
+	// 	logs.pop();
+	// }
 }
 
-Room::Room(Player* firstPlayer, float initTimer) :bidSem(1) {
+Room::Room(Player* firstPlayer, float initTimer) :bidSem(1), saySem(1) {
 	//the room will create when the first player comes in
 	players.push_back(firstPlayer);
 	roundNum = 0;
@@ -55,12 +55,12 @@ Room::Room(Player* firstPlayer, float initTimer) :bidSem(1) {
 }
 
 Dialog* Room::getCurrentDialog() {
-	return (dialogs.front());
+	return (dialogs.back());
 }
 
 Round* Room::getCurrentRound() {
 	//player thread will get the round, to get info it needs
-	return (logs.front());
+	return (logs.back());
 }
 Player* Room::getCurrentPayer() {
 	return currentPayer;
@@ -250,8 +250,10 @@ long SendData::ThreadMain() {
 				msg += "0";
 			}
 			socketptr->Write(ByteArray(msg));
+			usleep(1000);
 			msg = "item|" + std::to_string(r->item.id) + "|" + std::to_string(r->item.price) + "|" + std::to_string(r->item.score);
 			socketptr->Write(ByteArray(msg));
+			player.currentRoundNo = r->roundNum;
 		}
 		if (d->dialogNum > player.currentDialogNum) {
 			std::string content = d->content;
@@ -270,7 +272,7 @@ long SendData::ThreadMain() {
 				msg = "dialog|" + content;
 			}
 			socketptr->Write(ByteArray(msg));
-
+			player.currentDialogNum=d->dialogNum;
 		}
 		if (player.currentPrice < player.room->getCurrentRound()->item.price) {
 			std::string msg = "price|" + std::to_string(player.room->getCurrentRound()->item.price);
