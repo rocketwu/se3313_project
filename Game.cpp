@@ -101,9 +101,10 @@ ReciveData::ReciveData(Socket * socketptr, Player& player, Event& closeEvent) :c
 
 long ReciveData::ThreadMain() {
 	std::vector<std::string>* data_v;
-	while (!player.terminate) {
+	int clientStatus=1;
+	while ((!player.terminate)) {
 		ByteArray data;
-		int clientStatus = socketptr->Read(data);
+		clientStatus = socketptr->Read(data);
 		std::string data_str = data.ToString();
 		data_v = dataPhars(data);
 		std::string action = (*data_v)[0];
@@ -116,12 +117,15 @@ long ReciveData::ThreadMain() {
 		// else if (action == "leave") {
 		// 	leave();
 		}else if (action == "done"){
-			player.terminatePlayer();
+			std::cout<<"end rec";
+			delete data_v;
+			break;
 		}
 		delete data_v;
 		//socketptr->Write(data); //TODO: remove this line
 	}
-	
+	player.terminatePlayer();
+	std::cout<<"end rec";
 	socketptr->Close();
 	delete socketptr;
 	closeEvent.Trigger();
