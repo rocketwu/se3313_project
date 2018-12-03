@@ -47,6 +47,7 @@ void Room::timeup() {
 Room::Room(Player* firstPlayer, float initTimer) :bidSem(1), saySem(1) {
 	//the room will create when the first player comes in
 	//players.push_back(firstPlayer);
+	running=false;
 	playerNum=1;
 	roundNum = 0;
 	joinAble = true;
@@ -92,7 +93,7 @@ float Room::getTime() {
 void Room::join() {
 	// players.push_back(newPlayer);
 	playerNum++;
-	newPlayerJoin.Trigger();
+	//if(!running) {newPlayerJoin.Trigger();}
 }
 void Room::leave() {
 	// TODO: list.remove may mulfunction
@@ -244,10 +245,10 @@ long SendData::ThreadMain() {
 		//socketptr->Write(ByteArray(std::to_string(player.room->getCurrentRound()->item.score)));
 		while (player.room->getPlayerNum() < 2) {
 			//waiting for players
-			player.room->getJoinEvent().Wait();
-			player.room->getJoinEvent().Reset();
+			sleep(1);
 			//socketptr->Write(ByteArray(std::to_string(player.room->getPlayerNum())));
 		}
+		
 		//normal running
 		Round* r = player.room->getCurrentRound();
 		Dialog* d = player.room->getCurrentDialog();
@@ -282,7 +283,7 @@ long SendData::ThreadMain() {
 			else {
 				msg = "dialog|" + content;
 			}
-			msg=msg+payer;
+			msg=msg+"|"+payer;
 			socketptr->Write(ByteArray(msg));
 			player.currentDialogNum=d->dialogNum;
 		}

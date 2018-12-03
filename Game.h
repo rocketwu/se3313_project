@@ -90,6 +90,7 @@ private:
 
 public:
 	unsigned int playerNum;
+	bool running;
 	Round* lastRound;
 	Player* lastPayer;
 	Player* currentPayer;
