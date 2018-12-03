@@ -49,8 +49,8 @@ public:
 			socket.Write(data);
 
 			// Get the response
-			// int serverStatus=socket.Read(data);
-			// std::cout << "Server Response: " << data.ToString() << std::endl;
+			 int serverStatus=socket.Read(data);
+			 std::cout << "Server Response: " << data.ToString() << std::endl;
 
 		
 		do{

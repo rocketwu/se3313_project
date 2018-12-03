@@ -82,13 +82,16 @@ void Player::terminatePlayer() {
 	if (!terminate) {
 		terminate = true;
 		// TODO: event trigger before wait??
-		std::cout<<"terminating player"<<name<<std::endl;
-		ReciveClose.Wait();
-		std::cout<<"deleting recive"<<std::endl;
-		delete recive;
+		std::cout<<"terminating player "<<name<<std::endl;
+		
 		SendClose.Wait();
-		std::cout<<"deleting send"<<std::endl;
+		std::cout<<"deleting send "<<std::endl;
 		delete send;
+
+		ReciveClose.Wait();
+		std::cout<<"deleting recive "<<std::endl;
+		delete recive;
+
 		DeathEvent.Trigger();
 	}
 
@@ -124,9 +127,9 @@ long ReciveData::ThreadMain() {
 	closeEvent.Trigger();
 }
 void ReciveData::joinRoom(int roomNum) {
-	if(roomNum==PlayerManage::rooms.size()){
+	if(roomNum>=PlayerManage::rooms.size()){
 		PlayerManage::rooms.push_back(new Room(&player));
-		player.room = PlayerManage::rooms[roomNum];
+		player.room = PlayerManage::rooms[PlayerManage::rooms.size()-1];
 	}
 	else{
 		player.room = PlayerManage::rooms[roomNum];
@@ -138,7 +141,7 @@ void ReciveData::joinRoom(int roomNum) {
 void ReciveData::say(std::string content) {
 	saySem->Wait();
 	player.currentDialogNum = player.room->getCurrentDialog()->dialogNum;
-	player.room->dialogs.push(new Dialog(++player.currentDialogNum, content, player.name));
+	player.room->dialogs.push(new Dialog((player.currentDialogNum)+1, content, player.name));
 
 	saySem->Signal();
 }
@@ -210,7 +213,6 @@ long PlayerManage::ThreadMain()
 	std::vector<std::string>* data_v = dataPhars(data);
 
 	hey((*data_v)[1]);
-	std::cout<<"f";
 	delete data_v;
 	playerDeadEvent.Wait();
 	playingPlayer.remove(thePlayer);
