@@ -31,21 +31,37 @@ std::vector<std::string>* dataPhars(ByteArray data) {
 
 void Room::timeup() {
 	getCurrentRound()->done = true;
+<<<<<<< HEAD
 	getCurrentRound()->payer = currentPayer->name;
 	resetTimer();
 	
 	sleep(2);
 	logs.push(new Round(++roundNum));
 	currentPayer==NULL;
+=======
+	getCurrentRound()->payer=currentPayer->name;
+	lastRound=getCurrentRound();
+	lastPayer = currentPayer;
+	resetTimer();
+	logs.push(new Round(++roundNum));
+	//sleep(1);	
+	currentPayer = nullptr;
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 	// if (logs.size() > 5) {
 	// 	delete logs.back();
 	// 	logs.pop();
 	// }
 }
 
+<<<<<<< HEAD
 Room::Room(Player* firstPlayer, float initTimer) :bidSem(1),saySem(1) {
+=======
+Room::Room(Player* firstPlayer, float initTimer) :bidSem(1), saySem(1) {
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 	//the room will create when the first player comes in
-	players.push_back(firstPlayer);
+	//players.push_back(firstPlayer);
+	running=false;
+	playerNum=1;
 	roundNum = 0;
 	joinAble = true;
 	this->initTimer = initTimer;
@@ -55,6 +71,8 @@ Room::Room(Player* firstPlayer, float initTimer) :bidSem(1),saySem(1) {
 	rank[0] = 0;
 	rank[1] = 0;
 	rank[2] = 0;
+	lastPayer=firstPlayer;
+	lastRound=logs.front();
 }
 
 Dialog* Room::getCurrentDialog() {
@@ -80,20 +98,21 @@ void Room::resetTimer() {
 	timer = initTimer;
 }
 unsigned int Room::getPlayerNum() {
-	return players.size();
+	return playerNum;
 }
 float Room::getTime() {
 	return timer;
 }
-bool Room::join(Player* newPlayer) {
-	players.push_back(newPlayer);
-	newPlayerJoin.Trigger();
-	return true;
+void Room::join() {
+	// players.push_back(newPlayer);
+	playerNum++;
+	//if(!running) {newPlayerJoin.Trigger();}
 }
-bool Room::leave(Player* thePlayer) {
+void Room::leave() {
 	// TODO: list.remove may mulfunction
-	players.remove(thePlayer);
-	return true;
+	//players.remove(thePlayer);
+	playerNum--;
+	//return true;
 }
 void Room::terminateRoom() {
 	// TODO: terminate the room
@@ -154,11 +173,15 @@ long ReciveData::ThreadMain() {
 	std::vector<std::string>* data_v;
 	while (!player.terminate) {
 		ByteArray data;
+<<<<<<< HEAD
 		int clientStatus = socketptr->Read(data);	//FIXME: unblockable read needed
 		// if (clientStatus == 0) {
 		// 	std::cout << "client disconnected" << std::endl;
 		// 	player.terminatePlayer();
 		// }
+=======
+		int clientStatus = socketptr->Read(data);
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		std::string data_str = data.ToString();
 		data_v = dataPhars(data);
 		std::string action = (*data_v)[0];
@@ -175,6 +198,8 @@ long ReciveData::ThreadMain() {
 		}
 		else if (action == "leave") {
 			leave();
+		}else if (action == "done"){
+			player.terminatePlayer();
 		}
 		if (action == "done") player.terminatePlayer();
 		delete data_v;
@@ -192,7 +217,7 @@ void ReciveData::joinRoom(int roomNum) {
 	}
 	else{
 		player.room = PlayerManage::rooms[roomNum];
-		player.room->join(&player);
+		player.room->join();
 	}	
 	bidSem = player.room->getBidSem();
 	saySem = player.room->getSaySem();
@@ -204,6 +229,10 @@ void ReciveData::bid(int newPrice) {
 	if (player.room->getCurrentRound()->item.price < newPrice) {
 		player.room->getCurrentRound()->item.price = newPrice;
 		player.room->getCurrentRound()->payer = player.name;
+<<<<<<< HEAD
+=======
+		std::cout<<player.room->getCurrentRound()->payer<<":"<<player.name<<std::endl;
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		player.room->currentPayer = &player;
 		player.room->resetTimer();
 	}
@@ -228,7 +257,7 @@ void ReciveData::leave() {
 	}
 	bidSem = NULL;
 	saySem = NULL;
-	player.room->leave(&player);
+	player.room->leave();
 	player.room = NULL;
 
 	//send new rooms info
@@ -249,6 +278,7 @@ long SendData::ThreadMain() {
 	socketptr->Write(ByteArray("Welcome to room"));
 	bool updated=false;
 	while (!player.terminate) {
+<<<<<<< HEAD
 		
 		while (player.room->getPlayerNum() < 2) {
 			//waiting for players
@@ -258,26 +288,48 @@ long SendData::ThreadMain() {
 		if(updated)
 		//socketptr->Write(ByteArray("updated"));
 		updated = false;
+=======
+		while (!player.room){
+			sleep(1);
+		}
+		//socketptr->Write(ByteArray(std::to_string(player.room->getCurrentRound()->item.score)));
+		while (player.room->getPlayerNum() < 2) {
+			//waiting for players
+			sleep(1);
+			//socketptr->Write(ByteArray(std::to_string(player.room->getPlayerNum())));
+		}
+		
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		//normal running
 		Round* r = player.room->getCurrentRound();
 		Dialog* d = player.room->getCurrentDialog();
 		if (r->roundNum > player.currentRoundNo) {
+<<<<<<< HEAD
 			std::string msg = "round|" + std::to_string(r->roundNum) + "|" + r->payer + "|";
 			if (player.room->currentPayer== &player) {
+=======
+			std::string msg = "round|" + std::to_string(player.room->lastRound->roundNum) + "|" + player.room->lastRound->payer + "|";
+			if (player.room->lastPayer==&player) {
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 				msg += "1";
-				player.score += r->item.score;
+				player.score += player.room->lastRound->item.score;
 			}
 			else {
 				msg += "0";
 			}
 			usleep(100);
 			socketptr->Write(ByteArray(msg));
+			usleep(1000);
 			msg = "item|" + std::to_string(r->item.id) + "|" + std::to_string(r->item.price) + "|" + std::to_string(r->item.score);
 			socketptr->Write(ByteArray(msg));
+<<<<<<< HEAD
 			player.currentRoundNo = r->roundNum;
 			player.currentPrice=r->item.price;
 			updated = true;
 			
+=======
+			player.currentPrice=r->item.price;			
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		}
 		
 		if (d->dialogNum > player.currentDialogNum) {
@@ -296,10 +348,14 @@ long SendData::ThreadMain() {
 			else {
 				msg = "dialog|" + content;
 			}
+			msg=msg+"|"+payer;
 			socketptr->Write(ByteArray(msg));
 			player.currentDialogNum=d->dialogNum;
+<<<<<<< HEAD
 			updated = true;
 			usleep(100);
+=======
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		}
 		if (player.currentPrice < player.room->getCurrentRound()->item.price) {
 			std::string msg = "price|" + std::to_string(player.room->getCurrentRound()->item.price);
@@ -318,8 +374,12 @@ long SendData::ThreadMain() {
 			}
 			msg = msg + p1 + p2;
 			socketptr->Write(ByteArray(msg));
+<<<<<<< HEAD
 			updated = true;
 			usleep(100);
+=======
+			player.currentRoundNo = r->roundNum;
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 		}
 
 	}

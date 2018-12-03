@@ -66,7 +66,7 @@ public:
 	Event ReciveClose;
 	Event SendClose;
 	unsigned int currentRoundNo = 0;
-	unsigned int currentDialogNum = 5000;// TODO: set this value when server sending first dialog to client
+	unsigned int currentDialogNum = 0;// TODO: set this value when server sending first dialog to client
 	unsigned int currentPrice = 0;
 	unsigned int score = 0;
 	Player(Socket* recSocket, std::string name, Event& event);
@@ -78,7 +78,11 @@ public:
 class Room : public Thread {
 private:
 	
+<<<<<<< HEAD
 	std::list<Player*> players;
+=======
+	//std::list<Player*> players;
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 	float initTimer;
 	float timer;
 	unsigned int roundNum;
@@ -91,6 +95,13 @@ private:
 	
 
 public:
+<<<<<<< HEAD
+=======
+	unsigned int playerNum;
+	bool running;
+	Round* lastRound;
+	Player* lastPayer;
+>>>>>>> 703c85162ef4ae7387609753a59ff01bce9d99ef
 	Player* currentPayer;
 	std::queue<Dialog*> dialogs;
 	unsigned int rank[3];
@@ -105,8 +116,10 @@ public:
 	void resetTimer();
 	unsigned int getPlayerNum();
 	float getTime();
-	bool join(Player* newPlayer);
-	bool leave(Player* thePlayer);
+	// void join(Player* newPlayer);
+	// bool leave(Player* thePlayer);
+	void join();
+	void leave();
 	void terminateRoom();
 
 	Event& getJoinEvent();

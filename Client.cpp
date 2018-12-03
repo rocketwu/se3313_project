@@ -40,26 +40,32 @@ public:
 			return -1;
 		}
 
-		std::cout << "Please input your data (done to exit): ";
-		std::cout.flush();
-		std::getline(std::cin, data_str);
-		data = ByteArray(data_str);
+					std::cout << "Please input your data (done to exit): ";
+			std::cout.flush();
+			std::getline(std::cin, data_str);
+			data = ByteArray(data_str);
 
-		socket.Write(data);
+			// Write to the server
+			socket.Write(data);
 
-		int serverStatus=socket.Read(data);
+			// Get the response
+			int serverStatus=socket.Read(data);
+			std::cout << "Server Response: " << data.ToString() << std::endl;
 
-		std::cout << "Server Response: " << data.ToString() << std::endl;
-
+		
 		do{
+			// Get the data
+
+			std::cout << "Please input your data (done to exit): ";
+			std::cout.flush();
 			std::getline(std::cin, data_str);
 			data = ByteArray(data_str);
 
 			socket.Write(data);
 			serverStatus=socket.Read(data);
 
-			std::cout << "Server Response: " << data.ToString() << std::endl;
-		}while(serverStatus!=0);
+			
+		}while(data_str!="done");
 
 
 		socket.Close();
@@ -74,7 +80,6 @@ int main(void)
 	std::cout << "SE3313 Lab 4 Client" << std::endl;
 
 	// Create our socket
-	//Socket socket("35.162.177.130", 9631);
 	Socket socket("127.0.0.1", 9631);
 	ClientThread clientThread(socket);
 	clientThread.teminateEvent.Wait();
